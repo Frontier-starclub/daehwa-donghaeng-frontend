@@ -1,0 +1,30 @@
+name: ai
+
+# ai/ 가 바뀔 때만 돈다. Flutter 변경이 Python CI를 깨우지 않게 하려는 것.
+on:
+  push:
+    paths: ["ai/**", ".github/workflows/ai.yml"]
+  pull_request:
+    paths: ["ai/**", ".github/workflows/ai.yml"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ai
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - run: pip install -e ".[dev]"
+
+      - name: lint
+        run: ruff check .
+
+      - name: test
+        # PROVIDER_MODE=mock 이므로 API 키 없이 돈다.
+        run: pytest

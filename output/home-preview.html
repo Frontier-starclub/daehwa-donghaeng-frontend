@@ -1,0 +1,92 @@
+<div id="daehwa-home-preview" lang="ko" aria-label="대화동행 홈 화면 미리보기">
+  <style>
+    #daehwa-home-preview {font-family:Arial,'Malgun Gothic',sans-serif; color-scheme:light; color:#1a1a1a; max-width:412px; margin:0 auto;}
+    #daehwa-home-preview * {box-sizing:border-box;}
+    #daehwa-home-preview .phone {background:#f7f7f5; border:1px solid #cfcfc9; border-radius:12px; overflow:hidden;}
+    #daehwa-home-preview header {padding:20px; font-size:22px; font-weight:700; background:#fff;}
+    #daehwa-home-preview main {padding:20px; min-height:480px;}
+    #daehwa-home-preview h2 {font-size:27px; line-height:1.35; font-weight:700; margin:0 0 20px; color:#1a1a1a;}
+    #daehwa-home-preview .event {padding:20px; background:#fff; border:2px solid #cfcfc9; border-radius:12px; margin-bottom:14px;}
+    #daehwa-home-preview h3 {font-size:22px; line-height:1.4; font-weight:700; margin:0 0 14px; color:#1a1a1a;}
+    #daehwa-home-preview p {font-size:20px; line-height:1.5; margin:0 0 20px; overflow-wrap:anywhere;}
+    #daehwa-home-preview button {font-family:inherit; font-size:22px; line-height:1.4; font-weight:700; width:100%; min-height:72px; padding:14px; border-radius:12px; border:2px solid #1b5e9c; color:#fff; background:#1b5e9c; cursor:pointer;}
+    #daehwa-home-preview button.secondary {background:#fff; color:#1b5e9c; margin-top:14px;}
+    #daehwa-home-preview .register {margin-top:28px;}
+    #daehwa-home-preview .answer {display:flex; gap:14px; align-items:center; margin:0;}
+    #daehwa-home-preview .answer.yes {color:#1f6b36;}
+    #daehwa-home-preview .answer.no {color:#5a5a5a;}
+    #daehwa-home-preview .empty {padding:40px 0; text-align:center;}
+    #daehwa-home-preview .error {padding-top:90px; text-align:center;}
+    #daehwa-home-preview .note {font-size:17px; line-height:1.5; color:#5a5a5a; margin-top:14px;}
+  </style>
+  <section class="phone">
+    <header>대화동행</header>
+    <main>
+      <h2>오늘의 약</h2>
+      <div class="events">
+        <article class="event">
+          <h3>아침 08:00</h3>
+          <p>테스트약 A</p>
+          <div class="actions" aria-live="polite">
+            <button type="button" data-answer="yes">드셨어요</button>
+            <button type="button" class="secondary" data-answer="no">아직이에요</button>
+          </div>
+        </article>
+        <article class="event">
+          <h3>저녁 18:00</h3>
+          <p>테스트약 B</p>
+          <div class="actions" aria-live="polite">
+            <button type="button" data-answer="yes">드셨어요</button>
+            <button type="button" class="secondary" data-answer="no">아직이에요</button>
+          </div>
+        </article>
+      </div>
+      <p class="empty" hidden>아직 등록된 약이 없어요</p>
+      <div class="error" hidden>
+        <p>연결이 되지 않았어요. 잠시 후 다시 시도해 주세요.</p>
+        <button type="button" data-retry>다시 시도</button>
+      </div>
+      <button type="button" class="register" aria-describedby="register-note">약 등록하기</button>
+      <div id="register-note" class="note" role="status"></div>
+    </main>
+  </section>
+  <script>
+    (() => {
+      const root = document.getElementById('daehwa-home-preview');
+      const state = {screen:'populated'};
+      const events = root.querySelector('.events');
+      const original = events.innerHTML;
+      const note = root.querySelector('#register-note');
+      function render() {
+        events.innerHTML = original;
+        events.hidden = state.screen !== 'populated';
+        root.querySelector('.empty').hidden = state.screen !== 'empty';
+        root.querySelector('.error').hidden = state.screen !== 'error';
+        root.querySelector('h2').hidden = state.screen === 'error';
+        root.querySelector('.register').hidden = state.screen === 'error';
+        note.textContent = '';
+      }
+      root.addEventListener('click', (event) => {
+        const button = event.target.closest('button');
+        if (!button) return;
+        if (button.dataset.answer) {
+          const yes = button.dataset.answer === 'yes';
+          const status = document.createElement('p');
+          status.className = 'answer ' + (yes ? 'yes' : 'no');
+          status.textContent = (yes ? '✓  드셨어요' : '⊖  아직 안 드셨어요');
+          button.closest('.actions').replaceChildren(status);
+        } else if (button.hasAttribute('data-retry')) {
+          state.screen = 'populated';
+          render();
+        } else if (button.classList.contains('register')) {
+          note.textContent = '현재 코드에서 약 등록 화면은 아직 연결되지 않았습니다.';
+        }
+      });
+      render();
+      if (globalThis.Tweak) {
+        const tweak = new Tweak({container:root,onChange:render});
+        tweak.addSelect(state,'screen',{label:'홈 화면 상태',options:[{label:'복약 일정 있음',value:'populated'},{label:'등록된 약 없음',value:'empty'},{label:'연결 오류',value:'error'}]});
+      }
+    })();
+  </script>
+</div>

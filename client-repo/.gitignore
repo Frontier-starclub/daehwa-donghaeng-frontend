@@ -1,0 +1,31 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# Flutter — Android 설정과 앱 의존성 잠금 파일은 함께 관리한다.
+app/.dart_tool/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/build/
+app/ios/
+app/linux/
+app/macos/
+app/windows/
+
+# 약봉투 원본 이미지와 음성은 절대 커밋하지 않는다
+ai/evals/ocr/images/
+*.wav
+*.m4a
+
+.idea/
+.vscode/
+*.log
+.DS_Store

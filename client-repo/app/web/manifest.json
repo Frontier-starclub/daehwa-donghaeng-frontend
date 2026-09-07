@@ -1,0 +1,35 @@
+{
+    "name": "대화동행",
+    "short_name": "대화동행",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#F7F7F5",
+    "theme_color": "#1B5E9C",
+    "description": "대화동행 약 등록 화면 테스트",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

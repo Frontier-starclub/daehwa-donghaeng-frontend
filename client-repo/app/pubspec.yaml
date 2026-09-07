@@ -1,0 +1,40 @@
+name: daehwa_donghaeng
+description: 복약관리 기반 AI 대화동행 앱
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # 네트워크
+  http: ^1.2.0
+  http_parser: ^4.0.2
+
+  # 기기 식별자 저장
+  shared_preferences: ^2.3.0
+  uuid: ^4.5.0
+
+  # OCR-02 촬영
+  image_picker: ^1.1.0
+
+  # MED-01/03/04 복약 알림
+  flutter_local_notifications: ^17.2.0
+  timezone: ^0.9.4
+
+  # CHAT-02 음성 — 서버로 음성 파일을 보내지 않는다 (docs/chat-session.md)
+  speech_to_text: ^7.0.0
+  flutter_tts: ^4.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

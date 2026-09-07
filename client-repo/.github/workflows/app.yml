@@ -1,0 +1,31 @@
+name: app
+
+# app/ 이 바뀔 때만 돈다.
+on:
+  push:
+    paths: ["app/**", ".github/workflows/app.yml"]
+  pull_request:
+    paths: ["app/**", ".github/workflows/app.yml"]
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: stable
+
+      - run: flutter pub get
+
+      - name: analyze
+        run: flutter analyze
+
+      - name: test
+        # integration_test/ 는 백엔드가 필요하므로 CI에서 제외한다.
+        run: flutter test test

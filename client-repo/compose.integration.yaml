@@ -1,0 +1,62 @@
+name: daehwa-integration
+
+# 3자 통합 테스트용 — 백엔드 + DB + AI 서비스.
+# 백엔드 저장소가 형제 디렉터리에 clone 되어 있다고 가정한다.
+#
+#   ~/work/daehwa-donghaeng/          (백엔드)
+#   ~/work/daehwa-donghaeng-client/   (여기)
+#
+# 실행:
+#   docker compose -f compose.integration.yaml up --build
+#   python ../daehwa-donghaeng/apps/backend/scripts/smoke_test.py
+#
+# 검증 기준: PROVIDER_MODE=mock 일 때와 remote 일 때 smoke test가 똑같이 통과해야 한다.
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: frontier
+      POSTGRES_USER: frontier
+      POSTGRES_PASSWORD: frontier
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U frontier -d frontier"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  ai:
+    build:
+      context: ./ai
+    environment:
+      APP_ENV: development
+      PROVIDER_MODE: ${AI_PROVIDER_MODE:-mock}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      DATA_GO_KR_SERVICE_KEY: ${DATA_GO_KR_SERVICE_KEY:-}
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://localhost:8100/health/live')
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ../daehwa-donghaeng/apps/backend
+    environment:
+      APP_ENV: development
+      DATABASE_URL: postgresql+psycopg://frontier:frontier@db:5432/frontier
+      # remote 로 바꾸려면 백엔드에 어댑터가 머지되어 있어야 한다.
+      # docs/contract/ai-service.md 참조.
+      PROVIDER_MODE: ${BACKEND_PROVIDER_MODE:-mock}
+      AI_SERVICE_URL: http://ai:8100
+    ports:
+      - "8090:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      ai:
+        condition: service_healthy
