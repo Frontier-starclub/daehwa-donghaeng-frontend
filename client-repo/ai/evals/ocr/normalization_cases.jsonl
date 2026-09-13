@@ -1,0 +1,20 @@
+{"id":"norm-001","note":"약명 앞뒤 공백과 줄바꿈","raw":{"name":" \t예시약정\n "},"expected":{"name":"예시약정","dose_frequency_per_day":null}}
+{"id":"norm-002","note":"전각 숫자와 mg 표기, 함량 및 제형 보존","raw":{"name":"예시약서방정 ５００ｍｇ"},"expected":{"name":"예시약서방정 500mg","dose_frequency_per_day":null}}
+{"id":"norm-003","note":"숫자로 쓴 일일 횟수","raw":{"name":"예시약정","frequency_text":"1일 3회"},"expected":{"name":"예시약정","dose_frequency_per_day":3}}
+{"id":"norm-004","note":"한글로 쓴 일일 횟수","raw":{"name":"예시약정","frequency_text":"하루 두 번"},"expected":{"name":"예시약정","dose_frequency_per_day":2}}
+{"id":"norm-005","note":"전각 일일 횟수","raw":{"name":"예시약정","frequency_text":"１일 ３회"},"expected":{"name":"예시약정","dose_frequency_per_day":3}}
+{"id":"norm-006","note":"1회 투여량 및 식후 시간과 일일 횟수 구분","raw":{"name":"예시약정","frequency_text":"1회 2정, 1일 3회, 식후 30분"},"expected":{"name":"예시약정","dose_frequency_per_day":3}}
+{"id":"norm-007","note":"필요시 복용은 일일 횟수 추정 금지","raw":{"name":"예시약정","frequency_text":"필요시"},"expected":{"name":"예시약정","dose_frequency_per_day":null}}
+{"id":"norm-008","note":"주간 횟수를 일일 횟수로 환산하지 않음","raw":{"name":"예시약정","frequency_text":"주 3회"},"expected":{"name":"예시약정","dose_frequency_per_day":null}}
+{"id":"norm-009","note":"공백뿐인 약명 거부","raw":{"name":" \t\n "},"expected_error":"name"}
+{"id":"norm-010","note":"계약 범위를 초과한 명확한 일일 횟수 거부","raw":{"name":"예시약정","frequency_text":"1일 11회"},"expected_error":"dose_frequency_per_day"}
+{"id":"norm-011","note":"일일 횟수 밖의 대안 횟수가 있으면 확정하지 않음","raw":{"name":"예시약정","frequency_text":"1일 2회 혹은 3회"},"expected":{"name":"예시약정","dose_frequency_per_day":null}}
+{"id":"norm-012","note":"조건부 추가 횟수가 있으면 확정하지 않음","raw":{"name":"예시약정","frequency_text":"1일 2회, 증상에 따라 3회"},"expected":{"name":"예시약정","dose_frequency_per_day":null}}
+{"id":"norm-013","note":"'주세요'를 주 단위 일정으로 오인하지 않음","raw":{"name":"예시약정","frequency_text":"1일 3회 복용해 주세요"},"expected":{"name":"예시약정","dose_frequency_per_day":3}}
+{"id":"norm-014","note":"시간 한도 '이내'는 일일 횟수를 무효화하지 않음","raw":{"name":"예시약정","frequency_text":"1일 3회, 식후 30분 이내"},"expected":{"name":"예시약정","dose_frequency_per_day":3}}
+{"id":"norm-015","note":"1회 투여량 한도 '최대'는 일일 횟수를 무효화하지 않음","raw":{"name":"예시약정","frequency_text":"1일 3회, 1회 최대 2정"},"expected":{"name":"예시약정","dose_frequency_per_day":3}}
+{"id":"norm-016","note":"연령 조건 '이상'은 일일 횟수를 무효화하지 않음","raw":{"name":"예시약정","frequency_text":"65세 이상 1일 1회"},"expected":{"name":"예시약정","dose_frequency_per_day":1}}
+{"id":"norm-017","note":"붙은 '-'를 음수 부호로 읽지 않고 None","raw":{"name":"예시약정","frequency_text":"1일-3회"},"expected":{"name":"예시약정","dose_frequency_per_day":null}}
+{"id":"norm-018","note":"'+'를 양수 부호로 읽지 않고 None","raw":{"name":"예시약정","frequency_text":"하루 +2회"},"expected":{"name":"예시약정","dose_frequency_per_day":null}}
+{"id":"norm-019","note":"보이지 않는 format 문자만 있는 약명 거부","raw":{"name":"​"},"expected_error":"name"}
+{"id":"norm-020","note":"약명 앞 BOM 제거","raw":{"name":"﻿예시약"},"expected":{"name":"예시약","dose_frequency_per_day":null}}
