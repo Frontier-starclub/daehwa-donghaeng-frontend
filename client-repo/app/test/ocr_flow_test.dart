@@ -21,10 +21,9 @@ class TestPicker implements PrescriptionImagePicker {
 }
 
 class PendingOcr implements OcrRepository {
-  final pending = Completer<List<MedicationDraft>>();
+  final pending = Completer<OcrResult>();
   @override
-  Future<List<MedicationDraft>> recognize(PrescriptionImage image) =>
-      pending.future;
+  Future<OcrResult> recognize(PrescriptionImage image) => pending.future;
 }
 
 void main() {
@@ -37,7 +36,8 @@ void main() {
     await flow.pick(ImageSource.gallery);
     final request = flow.recognize();
     flow.go(OcrStep.photo);
-    repository.pending.complete([const MedicationDraft(name: '늦게 온 약')]);
+    repository.pending
+        .complete(const OcrResult(items: [MedicationDraft(name: '늦게 온 약')]));
     await request;
     expect(flow.step, OcrStep.photo);
     expect(flow.items.single.name, '수정한 약');
@@ -50,7 +50,8 @@ void main() {
     await flow.pick(ImageSource.gallery);
     final request = flow.recognize();
     flow.dispose();
-    repository.pending.complete([const MedicationDraft(name: '약')]);
+    repository.pending
+        .complete(const OcrResult(items: [MedicationDraft(name: '약')]));
     await request;
   });
 

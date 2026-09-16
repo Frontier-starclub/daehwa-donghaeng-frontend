@@ -20,6 +20,7 @@ class DeviceIdStore {
   SharedPreferences? _preferences;
   final Uuid _uuid;
   String? _cached;
+  Future<String>? _pending;
 
   Future<SharedPreferences> get _prefs async =>
       _preferences ??= await SharedPreferences.getInstance();
@@ -27,15 +28,22 @@ class DeviceIdStore {
   /// 저장된 값을 돌려주고, 없으면 한 번만 만들어 저장한다.
   Future<String> readOrCreate() async {
     if (_cached != null) return _cached!;
+    return _pending ??= _readOrCreate();
+  }
 
-    final prefs = await _prefs;
-    final existing = prefs.getString(_key);
-    if (existing != null && existing.isNotEmpty) {
-      return _cached = existing;
+  Future<String> _readOrCreate() async {
+    try {
+      final prefs = await _prefs;
+      final existing = prefs.getString(_key);
+      if (existing != null && existing.isNotEmpty) {
+        return _cached = existing;
+      }
+
+      final created = _uuid.v4();
+      await prefs.setString(_key, created);
+      return _cached = created;
+    } finally {
+      _pending = null;
     }
-
-    final created = _uuid.v4();
-    await prefs.setString(_key, created);
-    return _cached = created;
   }
 }

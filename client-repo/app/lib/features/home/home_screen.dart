@@ -7,6 +7,12 @@ import '../medication/medication_repository.dart';
 import '../ocr/ocr_repository.dart';
 import '../ocr/prescription_image_picker.dart';
 import '../ocr/screens/registration_flow_screen.dart';
+import '../medication/medication_list_screen.dart';
+import '../dur/dur_repository.dart';
+import '../dur/dur_screen.dart';
+import '../chat/chat_repository.dart';
+import '../chat/chat_screen.dart';
+import '../chat/voice_service.dart';
 
 /// HOME-01 — 홈.
 ///
@@ -23,12 +29,18 @@ class HomeScreen extends StatefulWidget {
     required this.imagePicker,
     required this.isMock,
     this.initialize,
+    required this.dur,
+    required this.chat,
+    required this.voice,
   });
   final MedicationDataSource repository;
   final OcrRepository ocrRepository;
   final PrescriptionImagePicker imagePicker;
   final bool isMock;
   final Future<void> Function()? initialize;
+  final DurDataSource dur;
+  final ChatDataSource chat;
+  final VoiceService Function() voice;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -42,6 +54,8 @@ class _HomeScreenState extends State<HomeScreen> {
   List<MedicationEvent>? _events;
   ApiException? _error;
   bool _loading = true;
+  int _loadGeneration = 0;
+  bool _navigating = false;
 
   @override
   void initState() {
@@ -50,6 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _load() async {
+    final ticket = ++_loadGeneration;
     setState(() {
       _loading = true;
       _error = null;
@@ -60,13 +75,13 @@ class _HomeScreenState extends State<HomeScreen> {
         _initialized = true;
       }
       final events = await _repository.todayEvents();
-      if (!mounted) return;
+      if (!mounted || ticket != _loadGeneration) return;
       setState(() {
         _events = events;
         _loading = false;
       });
     } on ApiException catch (error) {
-      if (!mounted) return;
+      if (!mounted || ticket != _loadGeneration) return;
       setState(() {
         _error = error;
         _loading = false;
@@ -93,6 +108,17 @@ class _HomeScreenState extends State<HomeScreen> {
     } finally {
       if (mounted) setState(() => _responding.remove(event.id));
     }
+  }
+
+  Future<void> _open(Widget screen) async {
+    if (_navigating) return;
+    _navigating = true;
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(builder: (_) => screen),
+    );
+    _navigating = false;
+    if (mounted) await _load();
   }
 
   @override
@@ -143,17 +169,47 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           const SizedBox(height: AppSpacing.lg),
           FilledButton(
-            onPressed: () => Navigator.push<void>(
-              context,
-              MaterialPageRoute(
-                builder: (_) => RegistrationFlowScreen(
-                  repository: widget.ocrRepository,
-                  picker: widget.imagePicker,
-                  isMock: widget.isMock,
-                ),
+            onPressed: () => _open(
+              RegistrationFlowScreen(
+                repository: widget.ocrRepository,
+                picker: widget.imagePicker,
+                isMock: widget.isMock,
+                medications: widget.repository,
+                dur: widget.dur,
               ),
             ),
             child: const Text('약 등록하기'),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          OutlinedButton(
+            onPressed: () => _open(
+              MedicationListScreen(
+                repository: widget.repository,
+                isMock: widget.isMock,
+              ),
+            ),
+            child: const Text('내 약 목록'),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          OutlinedButton(
+            onPressed: () => _open(
+              DurScreen(
+                repository: widget.dur,
+                medications: widget.repository,
+              ),
+            ),
+            child: const Text('약 주의사항 확인'),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          FilledButton(
+            onPressed: () => _open(
+              ChatScreen(
+                repository: widget.chat,
+                voice: widget.voice(),
+                isMock: widget.isMock,
+              ),
+            ),
+            child: const Text('이야기 나누기'),
           ),
         ],
       ),
@@ -169,7 +225,7 @@ class _EmptyState extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
       child: Text(
-        '아직 등록된 약이 없어요',
+        '오늘 예정된 약이 없어요. 약을 등록했다면 내 약 목록에서 복약 시간을 설정해 주세요.',
         style: Theme.of(context).textTheme.bodyLarge,
         textAlign: TextAlign.center,
       ),

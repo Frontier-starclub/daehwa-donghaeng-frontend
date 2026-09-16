@@ -17,6 +17,8 @@ class OcrFlowController extends ChangeNotifier {
   List<MedicationDraft> get items => List.unmodifiable(_items);
   String? message;
   bool picking = false;
+  String? scanId;
+  String? provider;
   int _generation = 0;
   bool _disposed = false;
 
@@ -65,8 +67,9 @@ class OcrFlowController extends ChangeNotifier {
     message = null;
     notifyListeners();
     try {
-      final result = await repository.recognize(image!);
+      final recognition = await repository.recognize(image!);
       if (!_current(ticket)) return;
+      final result = recognition.items;
       if (result.isEmpty ||
           result.length > 30 ||
           result.any(
@@ -81,6 +84,8 @@ class OcrFlowController extends ChangeNotifier {
         step = OcrStep.error;
       } else {
         _items = List.of(result);
+        scanId = recognition.scanId;
+        provider = recognition.provider;
         step = OcrStep.result;
       }
     } catch (error) {
@@ -101,7 +106,8 @@ class OcrFlowController extends ChangeNotifier {
     if (frequency != null && (frequency < 1 || frequency > 10)) {
       throw ArgumentError('Invalid frequency');
     }
-    final draft = MedicationDraft(name: name, doseFrequencyPerDay: frequency);
+    final draft = (index == null ? value : _items[index])
+        .edited(name: name, frequency: frequency);
     if (index == null) {
       if (_items.length >= 30) throw StateError('Too many medications');
       _items.add(draft);

@@ -9,6 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
   # 네트워크
   http: ^1.2.0
@@ -26,7 +28,7 @@ dependencies:
   timezone: ^0.9.4
 
   # CHAT-02 음성 — 서버로 음성 파일을 보내지 않는다 (docs/chat-session.md)
-  speech_to_text: ^7.0.0
+  speech_to_text: ^7.4.0
   flutter_tts: ^4.0.2
 
 dev_dependencies:

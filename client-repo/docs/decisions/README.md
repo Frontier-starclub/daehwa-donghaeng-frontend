@@ -4,6 +4,7 @@
 
 | 파일 | 내용 | 상태 |
 | --- | --- | --- |
+| [2026-09-17 프론트 인수인계](../contract/frontend-handoff.md) | 실제 Backend 연결, 약 등록·일정·DUR·음성 대화, 검증·후속 항목 | FE 구현/HTTP 검증 완료 · 실기기 검증 대기 |
 | `2026-09-06-repo-split.md` | 저장소 분리, 백엔드 연동 경계, 기술·환경 결정 | 제안 — BE·PM 확인 대기 |
 | `blockers.md` | 화면설계서 Decision Log의 미결정 사항 A/B/C/S-3 | 진행 중 |
 

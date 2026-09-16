@@ -6,6 +6,12 @@ import '../ocr_models.dart';
 import '../ocr_repository.dart';
 import '../prescription_image_picker.dart';
 import 'medication_edit_screen.dart';
+import '../../medication/medication_repository.dart';
+import '../../medication/registration_controller.dart';
+import '../../medication/schedule_screen.dart';
+import '../../medication/medication_list_screen.dart';
+import '../../dur/dur_repository.dart';
+import '../../dur/dur_screen.dart';
 
 /// OCR-01~07/E1. 공통 AppBar와 진행 상태를 공유하는 단계별 화면.
 class RegistrationFlowScreen extends StatefulWidget {
@@ -14,27 +20,35 @@ class RegistrationFlowScreen extends StatefulWidget {
     required this.repository,
     required this.picker,
     required this.isMock,
+    required this.medications,
+    required this.dur,
   });
   final OcrRepository repository;
   final PrescriptionImagePicker picker;
   final bool isMock;
+  final MedicationDataSource medications;
+  final DurDataSource dur;
   @override
   State<RegistrationFlowScreen> createState() => _RegistrationFlowScreenState();
 }
 
 class _RegistrationFlowScreenState extends State<RegistrationFlowScreen> {
   late final OcrFlowController flow;
+  late final RegistrationController registration;
+  final Set<String> _scheduled = {};
   @override
   void initState() {
     super.initState();
     flow =
         OcrFlowController(repository: widget.repository, picker: widget.picker);
+    registration = RegistrationController(widget.medications);
     flow.recover();
   }
 
   @override
   void dispose() {
     flow.dispose();
+    registration.dispose();
     super.dispose();
   }
 
@@ -51,6 +65,12 @@ class _RegistrationFlowScreenState extends State<RegistrationFlowScreen> {
   }
 
   void _back() {
+    if (registration.status == RegistrationStatus.saving) return;
+    if (registration.status == RegistrationStatus.saved ||
+        registration.status == RegistrationStatus.uncertain) {
+      Navigator.pop(context);
+      return;
+    }
     switch (flow.step) {
       case OcrStep.start:
         Navigator.pop(context);
@@ -72,7 +92,7 @@ class _RegistrationFlowScreenState extends State<RegistrationFlowScreen> {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-        animation: flow,
+        animation: Listenable.merge([flow, registration]),
         builder: (context, _) {
           final title = switch (flow.step) {
             OcrStep.start => '약 등록',
@@ -81,17 +101,20 @@ class _RegistrationFlowScreenState extends State<RegistrationFlowScreen> {
             OcrStep.processing => '약 읽는 중',
             OcrStep.result => '읽은 내용 확인',
             OcrStep.error => '다시 확인해 주세요',
-            OcrStep.complete => '내용 확인 완료',
+            OcrStep.complete => '약 등록 완료',
           };
           return PopScope(
-            canPop: flow.step == OcrStep.start,
+            canPop: flow.step == OcrStep.start &&
+                registration.status != RegistrationStatus.saving,
             onPopInvokedWithResult: (didPop, result) {
               if (!didPop) _back();
             },
             child: Scaffold(
               appBar: AppBar(
                 leading: IconButton(
-                  onPressed: _back,
+                  onPressed: registration.status == RegistrationStatus.saving
+                      ? null
+                      : _back,
                   tooltip: '뒤로',
                   icon: const Icon(Icons.arrow_back),
                 ),
@@ -103,7 +126,7 @@ class _RegistrationFlowScreenState extends State<RegistrationFlowScreen> {
                   padding: const EdgeInsets.all(AppSpacing.screenH),
                   children: [
                     if (widget.isMock) ...[
-                      const Text('화면 테스트 · 사진과 무관한 예시 결과이며 저장되지 않습니다.'),
+                      const Text('화면 테스트 · 예시 데이터이며 서버에 저장되지 않습니다.'),
                       const SizedBox(height: AppSpacing.md),
                     ],
                     ..._content(),
@@ -133,6 +156,30 @@ class _RegistrationFlowScreenState extends State<RegistrationFlowScreen> {
       );
 
   List<Widget> _content() {
+    if (registration.status == RegistrationStatus.saving) {
+      return [
+        _heading('약을 등록하고 있어요'),
+        const Center(child: CircularProgressIndicator()),
+      ];
+    }
+    if (registration.status == RegistrationStatus.uncertain) {
+      return [
+        _heading('저장 여부를 확인해 주세요'),
+        _body(registration.error!),
+        _primary('내 약 목록 확인', () async {
+          await Navigator.push<void>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => MedicationListScreen(
+                repository: widget.medications,
+                isMock: widget.isMock,
+              ),
+            ),
+          );
+        }),
+        _secondary('홈으로', () => Navigator.pop(context)),
+      ];
+    }
     switch (flow.step) {
       case OcrStep.start:
         return [
@@ -210,7 +257,24 @@ class _RegistrationFlowScreenState extends State<RegistrationFlowScreen> {
             child: const Text('+ 약 추가하기'),
           ),
           if (flow.items.length >= 30) _body('한 번에 30개까지 확인할 수 있어요.'),
-          _primary('이 내용이 맞아요', flow.items.isEmpty ? null : flow.confirm),
+          if (flow.provider == 'mock' && !widget.isMock)
+            _body('서버가 보낸 예시 결과입니다. 실제 사진 인식 결과가 아니에요.'),
+          if (registration.error != null) _body(registration.error!),
+          _primary(
+            '이 내용으로 등록',
+            flow.items.isEmpty
+                ? null
+                : () async {
+                    await registration.save(
+                      scanId: flow.scanId,
+                      items: flow.items,
+                    );
+                    if (mounted &&
+                        registration.status == RegistrationStatus.saved) {
+                      flow.confirm();
+                    }
+                  },
+          ),
           _secondary('다시 찍기', () => flow.go(OcrStep.capture)),
         ];
       case OcrStep.error:
@@ -223,11 +287,33 @@ class _RegistrationFlowScreenState extends State<RegistrationFlowScreen> {
         ];
       case OcrStep.complete:
         return [
-          _heading('내용을 확인했어요'),
-          _body('이번 테스트는 내용 확인까지입니다. 약 등록과 주의사항 조회는 아직 진행되지 않았어요.'),
-          for (final item in flow.items) _body(item.name),
+          _heading('약을 등록했어요'),
+          _body('오늘의 약에 표시하려면 복약 시간을 설정해 주세요.'),
+          for (final item in registration.medications) ...[
+            _body(item.name),
+            _secondary(
+                _scheduled.contains(item.id) ? '시간 설정 완료 · 다시 설정' : '복약 시간 설정',
+                () async {
+              final saved = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ScheduleScreen(
+                    medication: item,
+                    repository: widget.medications,
+                  ),
+                ),
+              );
+              if (mounted && saved == true) {
+                setState(() => _scheduled.add(item.id));
+              }
+            }),
+          ],
+          const SizedBox(height: AppSpacing.lg),
+          DurResultView(
+            repository: widget.dur,
+            medications: widget.medications,
+          ),
           _primary('홈으로', () => Navigator.pop(context)),
-          _secondary('내용 다시 보기', () => flow.go(OcrStep.result)),
         ];
     }
   }

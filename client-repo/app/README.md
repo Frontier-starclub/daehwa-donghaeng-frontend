@@ -1,89 +1,107 @@
-# Flutter 앱
+# Flutter 프론트엔드
 
-## 2026-09-07 프론트엔드 구현 현황
+2026-09-17 기준, 기존 디자인을 유지하면서 사용자 등록·약 촬영/OCR·약 저장·복약 시간·DUR 결과·음성 대화를 구현했습니다.
+앱은 백엔드를 호출하고, 실제 OCR·식약처·LLM 구현은 AI 담당이 제공합니다.
+[완료 범위와 API 인수인계](../docs/contract/frontend-handoff.md)를 함께 전달하세요.
 
-기존 홈·디자인 토큰을 유지하고 약 등록/OCR 테스트 흐름을 추가했습니다.
-`USE_MOCK=true`이면 백엔드 없이 실행됩니다. 사진을 선택해도 인식 결과는
-고정 예시이며 서버에 저장되지 않습니다. 실제 OCR 연동은 백엔드 명세 확인 대기입니다.
+## 서버 없이 화면 확인
 
-구현한 흐름:
-
-`홈 → 약 등록 → 카메라/앨범 → 사진 확인 → 인식 중 → 결과 확인·수정·삭제·추가 → 확인 완료`
-
-- OCR-01~05/E1: `lib/features/ocr/screens/registration_flow_screen.dart`의 단계별 화면.
-- OCR-06/07: `medication_edit_screen.dart`를 수정/직접 입력에서 재사용.
-- 화면 전환·취소·수정 데이터: `ocr_flow_controller.dart`.
-- 이미지 선택/Android 재시작 시 선택 결과 복구: `prescription_image_picker.dart`.
-- HTTP 구현/예시 구현: `http_ocr_repository.dart` / `mock_ocr_repository.dart`.
-- 결과 확정은 이번 테스트의 종료 지점입니다. 약 저장·DUR 조회를 수행하지 않습니다.
-- 입력 범위는 약 이름과 선택적 1일 횟수(1~10)로 구현했습니다. 문서의 Blocker A 제안 기준이며 팀 확정 시 조정합니다.
-
-### 서버 없이 실행
-
-```sh
-flutter pub get
+```powershell
+cd client-repo/app
+./scripts/run-mock.ps1
+# 또는 Flutter가 PATH에 있으면
 flutter run -d chrome --dart-define=USE_MOCK=true
-# Android 기기 연결 후
-flutter run --dart-define=USE_MOCK=true
-# 실패 화면 확인: success / empty / error / timeout
-flutter run -d chrome --dart-define=USE_MOCK=true --dart-define=MOCK_OCR_SCENARIO=error
 ```
 
-이 작업 폴더에는 Flutter 3.47.2 SDK를 `../../output/tooling/flutter`에 준비했습니다.
-PATH에 Flutter가 없다면 PowerShell에서 `./scripts/run-mock.ps1`로 브라우저 실행을 시작합니다.
-브라우저의 사진 촬영 동작은 브라우저·기기에 따라 파일 선택으로 표시될 수 있습니다.
-Android에서는 휴대폰 기본 카메라를 사용합니다. 앱 내부 실시간 가이드 프레임은 이번 구현에 포함되지 않습니다.
+이 모드는 OCR·DUR·대화가 예시 응답이며 등록한 약과 복약 기록도 메모리에만 보관합니다.
+앱 재실행 시 초기화됩니다. 카메라/앨범과 STT/TTS는 기기의 실제 기능을 사용하며, 권한·엔진이 없으면 직접 입력할 수 있습니다.
+OCR 실패 화면은 `./scripts/run-mock.ps1 -Scenario error`로 확인합니다.
+`success / empty / error / timeout`을 지원합니다.
 
-### 실제 서버 연결
+## 실제 백엔드 연결
 
-기존 기본 모드는 실제 백엔드 연결을 유지했습니다. 신규 테스트 사용자는 이름을 명시해 등록합니다.
+팀 저장소 https://github.com/Frontier-starclub/daehwa-donghaeng 의 실행 방법을 따릅니다.
+백엔드가 켜진 뒤 앱 디렉터리에서:
 
-```sh
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8090/api/v1 --dart-define=BOOTSTRAP_DISPLAY_NAME=테스트
+```powershell
+# Chrome: 백엔드 CORS에 맞춰 localhost:3000에서 실행
+./scripts/run-backend.ps1
+
+# Android 에뮬레이터: flutter devices에서 기기 ID 확인
+./scripts/run-backend.ps1 -Device emulator-5554
+
+# 휴대폰: 같은 네트워크에서 개발 PC의 주소 사용
+./scripts/run-backend.ps1 -Device <기기-ID> -ApiBaseUrl http://<개발-PC-IP>:8090/api/v1
 ```
 
-이름을 지정하지 않으면 기존 기기 ID로 조회합니다. 온보딩 이름 입력 화면은 후속 작업입니다.
-실제 OCR은 `UnconfiguredOcrRepository`가 준비 중 안내를 반환합니다.
-백엔드 담당자에게 다음을 받은 뒤 `main.dart`의 해당 객체를 `HttpOcrRepository`로 교체합니다.
+스크립트는 설치된 Flutter 또는 이 작업 폴더의 `output/tooling/flutter` SDK를 사용합니다.
+휴대폰에서 `localhost`는 PC를 뜻하지 않습니다. 서버가 PC의 네트워크 인터페이스에서도 접근 가능해야 합니다.
 
-1. 앱→백엔드 OCR 경로, multipart 필드명, 인증 요구사항.
-2. 성공·실패 응답 JSON과 스캔 ID/약 목록이 위치한 필드.
-3. 테스트 서버 주소 및 실제 OCR 사용 가능 여부.
+처음 실행하면 이름/별명을 입력하고 서버에 등록합니다. 같은 기기 ID를 계속 사용하고, 성공한 이름은 서버 주소별로 저장합니다.
+기존 테스트용 `BOOTSTRAP_DISPLAY_NAME`도 지원합니다.
+`USE_MOCK` 기본값은 `false`입니다. 앱이 실제 백엔드를 호출하더라도 백엔드의 AI 모드가 mock이면 OCR/DUR/대화 내용은 예시입니다.
+실제 서비스 실패 시 앱이 예시 응답으로 자동 전환하지 않습니다.
 
-`HttpOcrRepository`는 `ApiClient`, 상대 경로, 응답 decoder를 주입받습니다.
-공통 업로드 필드명은 현재 `image`입니다. 응답 경로를 임의로 가정하지 않았으며,
-`docs/contract/ai-service.md`의 백엔드→AI API를 앱에서 직접 호출하지 않습니다.
+## 구현한 흐름
 
-### 검증
+- 홈 → 약 등록 → 카메라/앨범 → 사진 확인 → OCR → 결과 수정/삭제/추가 → 약 저장.
+- 직접 입력도 가능하며, 스캔 ID 없이 같은 약 저장 API를 사용합니다.
+- 약 이름을 수정하면 이전 약의 품목 코드·성분 정보·인식 신뢰도를 제거합니다.
+- 저장 결과가 불명확하면 자동 재등록하지 않고 내 약 목록 확인을 안내합니다.
+- 저장된 약 → 복약 시간 직접 설정 → 홈의 오늘의 약 갱신 → 드셨어요/아직이에요 기록.
+- DUR은 약 저장 후 자동 확인하며 홈에서도 진입할 수 있습니다. 조회된 경고 없음과 확인 실패를 구분합니다.
+- 대화 참여/거절 → 마이크 또는 글 입력 → 인식 문장 확인 → 전송 → 답변 표시/TTS → 대화 종료.
+- 대화 재시도는 동일한 메시지 ID/본문을 유지하고, 화면 재진입 시 서버의 진행 중인 대화를 복구합니다.
+- 화면 이탈/백그라운드 전환 시 음성 중지, 늦게 도착한 응답 무시, 마이크 거부·TTS 실패 시 텍스트 대화 유지.
 
-2026-09-07 결과: Flutter 3.47.2/Dart 3.13.2에서 분석 오류 0건, 테스트 14개 통과,
-mock 웹 빌드 성공. [상세 검증 기록](../docs/decisions/2026-09-07-frontend-ocr.md)을 참고하세요.
-Android SDK가 없어 APK 빌드·실기기 검증은 수행하지 못했습니다.
+약의 1일 횟수만으로 복약 시간을 정하지 않습니다. 서버의 일정 API 한도는 약당 1~8개 시간입니다.
+시간을 설정하기 전에는 약 목록에 저장되어 있어도 오늘의 약에 나타나지 않을 수 있습니다.
+시간 설정 API는 기존 일정을 전체 교체하므로 화면에서도 이를 안내합니다.
 
-```sh
-flutter analyze
-flutter test test
-flutter build web --dart-define=USE_MOCK=true
+## 코드 구조
+
+```text
+lib/core/                   API·기기 ID·오류 처리
+lib/design/                 기존 색상·글자·버튼 규격
+lib/features/onboarding/    최초 이름 입력·사용자 등록
+lib/features/ocr/           사진·인식 결과·수정·등록 흐름
+lib/features/medication/    약 저장·목록·시간 설정·복약 기록
+lib/features/dur/           주의사항 결과·실패·재시도
+lib/features/chat/          대화 API·상태·STT/TTS·화면
+lib/features/home/          오늘의 약과 각 기능 진입
 ```
 
-테스트는 사진 선택 취소, 늦은 OCR 응답 무시, dispose 이후 완료, 빈 결과·오류·시간 초과,
-직접 입력 검증, 수정·삭제, 실제 화면 왕복, 작은 화면과 큰 글씨를 다룹니다.
-백엔드 통합 테스트는 기존 `integration_test/round_trip_test.dart`이며 서버가 필요합니다.
-Android SDK/실기기가 없는 환경에서는 카메라 권한·실기기 복귀·APK 동작을 검증할 수 없습니다.
+화면은 Repository로 데이터를 받습니다. 외부 AI API 키는 Flutter에 넣지 않습니다.
+Android 마이크 권한과 음성 서비스 조회 설정을 추가했으며 휴대폰 마이크를 사용합니다. Bluetooth 전용 연결은 이번 범위에서 비활성화했습니다.
+배경 복약 알림·보호자 기능·분석 리포트·Play 배포는 포함하지 않습니다.
 
-Android와 웹 플랫폼 폴더 및 `pubspec.lock`을 버전 관리하도록 변경했습니다.
-CI에서는 `flutter create`를 다시 실행하지 않습니다(기본 카운터 테스트 재생성 방지).
-Android 평문 개발 서버 허용은 debug manifest에만 있습니다.
-기본 카메라 intent를 사용하는 image_picker 방식이므로 CAMERA 권한을 임의로 추가하지 않았습니다.
-알림·마이크 기능은 아직 미구현이며 해당 권한 설정도 후속 구현에서 추가합니다.
+## 자동 검증
 
-현재 폴더에서 플랫폼 생성은 다시 실행할 필요가 없습니다.
+```powershell
+flutter analyze --no-pub
+flutter test --no-pub
+flutter build web --no-pub --dart-define=USE_MOCK=true --no-web-resources-cdn --no-wasm-dry-run
+```
 
+2026-09-16~17 검증: 분석 문제 0건, HTTP 통합을 포함한 테스트 37개 통과, 웹 빌드 성공.
+기본 테스트에서는 실제 백엔드 테스트 1개를 건너뜁니다. 실제 호출 테스트는 아래와 같이 별도 테스트 서버를 실행해야 합니다.
 
-## 화면 구현 원칙
+백엔드 의존성이 설치된 Python 3.13+ 환경에서, 앱 디렉터리의 첫 번째 터미널:
 
-- design/tokens.dart의 글자 크기, 버튼 높이, 색상, 간격을 사용합니다.
-- 화면은 Repository를 통해 데이터를 받고 직접 HTTP 요청을 만들지 않습니다.
-- DUR 화면을 추가할 때 백엔드 disclaimer를 표시합니다.
-- 음성 기능은 이후 앱에서 STT/TTS로 처리하고 서버에는 텍스트를 전송합니다.
-- 사진은 임시 데이터로만 처리하며 원본 약봉투와 API 키를 커밋하지 않습니다.
+```powershell
+python scripts/serve_test_backend.py --backend-dir <백엔드-저장소>/apps/backend --port 18090
+```
+
+두 번째 터미널:
+
+```powershell
+flutter test --no-pub --dart-define=RUN_BACKEND_INTEGRATION=true
+```
+
+런처는 팀 백엔드 코드를 변경하지 않고 앱 `build/backend-fixtures` 아래 새 임시 SQLite DB를 만들며 종료 시 정리합니다.
+AI는 백엔드 내부 mock이고 외부 API 키는 필요 없습니다. 기존 사용자 DB를 사용하지 않습니다.
+이 검증은 PostgreSQL의 동시성·마이그레이션이나 실제 AI 품질 검증을 대신하지 않습니다.
+
+Android SDK와 실기기가 이 환경에 없어 APK 빌드·실제 촬영/STT/TTS 검증은 남아 있습니다.
+휴대폰에서 마이크 허용/거부, 한국어 인식, 답변 읽기/중지, 앱 백그라운드 전환, 카메라 복귀를 확인해야 합니다.
+웹 빌드에는 CupertinoIcons 미포함 경고가 있으나 빌드는 성공했고 앱의 아이콘은 Material 아이콘입니다.

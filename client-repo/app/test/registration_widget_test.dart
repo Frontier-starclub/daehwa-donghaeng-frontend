@@ -40,19 +40,28 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('약 등록하기'), 250,
-        scrollable: find.byType(Scrollable).first,);
+    await tester.scrollUntilVisible(
+      find.text('약 등록하기'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('약 등록하기'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('직접 입력하기'), 250,
-        scrollable: find.byType(Scrollable).first,);
+    await tester.scrollUntilVisible(
+      find.text('직접 입력하기'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('직접 입력하기'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField).first, '큰 글씨 테스트');
-    await tester.scrollUntilVisible(find.text('확인'), 250,
-        scrollable: find.byType(Scrollable).first,);
+    await tester.scrollUntilVisible(
+      find.text('확인'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('확인'));
     await tester.pumpAndSettle();
@@ -78,13 +87,20 @@ void main() {
   }
 
   Future<void> tap(WidgetTester tester, String label) async {
-    final finder = find.text(label).last;
-    await tester.ensureVisible(finder);
-    await tester.tap(finder);
+    final finder = find.text(label);
+    if (finder.evaluate().isEmpty) {
+      await tester.scrollUntilVisible(
+        finder,
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+    }
+    await tester.ensureVisible(finder.last);
+    await tester.tap(finder.last);
     await tester.pumpAndSettle();
   }
 
-  testWidgets('home → manual input → confirm → home without saving medication',
+  testWidgets('home → manual input → save → home without automatic schedule',
       (tester) async {
     await openApp(tester);
     await tap(tester, '약 등록하기');
@@ -94,9 +110,11 @@ void main() {
     await tester.enterText(find.byType(TextFormField).first, '직접 입력한 약');
     await tap(tester, '확인');
     expect(find.text('직접 입력한 약'), findsOneWidget);
-    await tap(tester, '이 내용이 맞아요');
-    expect(find.textContaining('약 등록과 주의사항 조회는 아직'), findsOneWidget);
+    await tap(tester, '이 내용으로 등록');
+    expect(find.text('약을 등록했어요'), findsOneWidget);
     await tap(tester, '홈으로');
+    await tester.drag(find.byType(ListView), const Offset(0, 1500));
+    await tester.pumpAndSettle();
     expect(find.text('오늘의 약'), findsOneWidget);
     expect(find.text('직접 입력한 약'), findsNothing);
   });

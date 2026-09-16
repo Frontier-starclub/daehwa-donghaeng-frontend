@@ -1,0 +1,23 @@
+# Local SDK, reference backend, test environments, and generated previews.
+/output/*
+!/output/home-preview.html
+/.playwright-cli/
+/.agents/
+/.codex/
+
+# Local environment and credentials. Keep the shared configuration template.
+.env
+.env.*
+!.env.example
+key.properties
+local.properties
+*.jks
+*.keystore
+
+# Generated dependencies and caches.
+node_modules/
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+*.log

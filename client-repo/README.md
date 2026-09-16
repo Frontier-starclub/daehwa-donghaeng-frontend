@@ -3,11 +3,12 @@
 복약관리 기반 AI 대화동행 서비스의 **Flutter 앱**과 **AI 서비스** 저장소입니다.
 백엔드는 [`frontier-starclub/daehwa-donghaeng`](https://github.com/frontier-starclub/daehwa-donghaeng)에 있습니다.
 
-담당: 이석윤(FE·AI), 정진수(AI)
+담당: 이석윤(FE·OCR 연동·음성), 정진수(약 정보·DUR·AI)
 
-2026-09-07: Flutter 약 등록·사진 선택·OCR 결과 확인/수정/실패 화면과 프론트엔드 mock 모드를 추가했습니다.
+2026-09-17: 사용자 등록, 실제 Backend OCR/약 저장 호출, 복약 시간, DUR 결과, 음성/텍스트 대화를 구현했습니다.
 서버 없는 실행은 `cd app` 후 `flutter run -d chrome --dart-define=USE_MOCK=true`입니다.
-실제 OCR API 연결과 Android 실기기 검증은 남아 있습니다. 상세는 [앱 README](app/README.md)를 보세요.
+실제 서버 실행은 `app/scripts/run-backend.ps1`을 사용합니다. Backend 내부 AI mock과 HTTP 통합을 확인했습니다.
+실제 AI 구현과 Android 실기기 검증은 남아 있습니다. [앱 README](app/README.md), [프론트 인수인계](docs/contract/frontend-handoff.md)를 보세요.
 
 ## 구조
 

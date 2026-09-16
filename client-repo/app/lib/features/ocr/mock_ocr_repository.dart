@@ -13,16 +13,19 @@ class MockOcrRepository implements OcrRepository {
   final Duration delay;
 
   @override
-  Future<List<MedicationDraft>> recognize(PrescriptionImage image) async {
+  Future<OcrResult> recognize(PrescriptionImage image) async {
     await Future<void>.delayed(delay);
     switch (scenario) {
       case MockOcrScenario.success:
-        return const [
-          MedicationDraft(name: '예시약 A'),
-          MedicationDraft(name: '예시약 B'),
-        ];
+        return const OcrResult(
+          provider: 'mock',
+          items: [
+            MedicationDraft(name: '예시약 A'),
+            MedicationDraft(name: '예시약 B'),
+          ],
+        );
       case MockOcrScenario.empty:
-        return const [];
+        return const OcrResult(items: []);
       case MockOcrScenario.error:
         throw const ApiException(
           statusCode: 502,

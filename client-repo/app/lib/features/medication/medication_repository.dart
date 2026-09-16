@@ -1,4 +1,6 @@
 import '../../core/api_client.dart';
+import '../../core/json_decode.dart';
+import '../ocr/ocr_models.dart';
 import 'medication_models.dart';
 
 /// 복약 관련 API 호출.
@@ -11,6 +13,14 @@ abstract interface class MedicationDataSource {
     required bool taken,
   });
   Future<List<Medication>> activeMedications();
+  Future<List<Medication>> saveMedications({
+    String? scanId,
+    required List<MedicationDraft> items,
+  });
+  Future<void> saveSchedules(
+    String medicationId,
+    List<MedicationSchedule> schedules,
+  );
 }
 
 class MedicationRepository implements MedicationDataSource {
@@ -37,10 +47,15 @@ class MedicationRepository implements MedicationDataSource {
   /// 서버가 조회 시점에 오늘치 일정을 만들어 주므로 앱에서 따로 생성하지 않는다.
   @override
   Future<List<MedicationEvent>> todayEvents() async {
-    final data = await _api.get('/medication-events/today') as List<dynamic>;
-    return data
-        .map((item) => MedicationEvent.fromJson(item as Map<String, dynamic>))
-        .toList();
+    final data = await _api.get('/medication-events/today');
+    return decodeResponse(
+      data,
+      (value) => (value as List<dynamic>)
+          .map(
+            (item) => MedicationEvent.fromJson(item as Map<String, dynamic>),
+          )
+          .toList(),
+    );
   }
 
   /// MED-04 — "약을 드셨나요?" 예/아니오 응답.
@@ -52,16 +67,52 @@ class MedicationRepository implements MedicationDataSource {
     final data = await _api.put(
       '/medication-events/$eventId/response',
       body: {'status': taken ? 'taken' : 'not_taken'},
-    ) as Map<String, dynamic>;
-    return MedicationEvent.fromJson(data);
+    );
+    return decodeResponse(
+      data,
+      (value) => MedicationEvent.fromJson(value as Map<String, dynamic>),
+    );
   }
 
   /// MED-07 — 내 약 목록.
   @override
   Future<List<Medication>> activeMedications() async {
-    final data = await _api.get('/medications') as List<dynamic>;
-    return data
-        .map((item) => Medication.fromJson(item as Map<String, dynamic>))
-        .toList();
+    final data = await _api.get('/medications');
+    return _decodeMedications(data);
+  }
+
+  List<Medication> _decodeMedications(dynamic data) => decodeResponse(
+        data,
+        (value) => (value as List<dynamic>)
+            .map((item) => Medication.fromJson(item as Map<String, dynamic>))
+            .toList(),
+      );
+
+  @override
+  Future<List<Medication>> saveMedications({
+    String? scanId,
+    required List<MedicationDraft> items,
+  }) async {
+    final data = await _api.post(
+      '/medications/batch',
+      body: {
+        'scan_id': scanId,
+        'items': items.map((item) => item.toJson()).toList(),
+      },
+    );
+    return _decodeMedications(data);
+  }
+
+  @override
+  Future<void> saveSchedules(
+    String medicationId,
+    List<MedicationSchedule> schedules,
+  ) async {
+    await _api.put(
+      '/medications/$medicationId/schedules',
+      body: {
+        'schedules': schedules.map((item) => item.toJson()).toList(),
+      },
+    );
   }
 }

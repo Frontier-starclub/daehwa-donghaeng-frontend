@@ -3,21 +3,21 @@ import '../../core/api_exception.dart';
 import 'ocr_models.dart';
 import 'ocr_repository.dart';
 
-typedef OcrResponseDecoder = List<MedicationDraft> Function(dynamic response);
+typedef OcrResponseDecoder = OcrResult Function(dynamic response);
 
 /// 백엔드 명세를 받은 후 경로와 decoder를 주입한다. AI 서비스 직접 호출 금지.
 class HttpOcrRepository implements OcrRepository {
   const HttpOcrRepository({
     required this.api,
-    required this.path,
-    required this.decode,
+    this.path = '/medication-scans',
+    this.decode,
   });
   final ApiClient api;
   final String path;
-  final OcrResponseDecoder decode;
+  final OcrResponseDecoder? decode;
 
   @override
-  Future<List<MedicationDraft>> recognize(PrescriptionImage image) async {
+  Future<OcrResult> recognize(PrescriptionImage image) async {
     final response = await api.uploadImage(
       path,
       bytes: image.bytes,
@@ -25,7 +25,8 @@ class HttpOcrRepository implements OcrRepository {
       contentType: image.contentType,
     );
     try {
-      return decode(response);
+      return decode?.call(response) ??
+          OcrResult.fromJson(response as Map<String, dynamic>);
     } on FormatException catch (error) {
       throw ApiException.malformed(error);
     } on TypeError catch (error) {
@@ -37,7 +38,7 @@ class HttpOcrRepository implements OcrRepository {
 class UnconfiguredOcrRepository implements OcrRepository {
   const UnconfiguredOcrRepository();
   @override
-  Future<List<MedicationDraft>> recognize(PrescriptionImage image) async {
+  Future<OcrResult> recognize(PrescriptionImage image) async {
     throw const ApiException(
       statusCode: 0,
       code: 'OCR_NOT_CONFIGURED',

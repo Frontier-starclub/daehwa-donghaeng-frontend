@@ -66,3 +66,13 @@ class Medication {
         doseFrequencyPerDay: json['dose_frequency_per_day'] as int?,
       );
 }
+
+class MedicationSchedule {
+  const MedicationSchedule({required this.timeSlot, required this.remindAt});
+  final String timeSlot;
+  final String remindAt;
+  Map<String, dynamic> toJson() => {
+        'time_slot': timeSlot,
+        'remind_at': remindAt,
+      };
+}

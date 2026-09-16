@@ -1,8 +1,32 @@
 # 압축 파일 사용법
 
-> 2026-09-07 업데이트: Flutter 약 등록/OCR 프론트엔드 mock 흐름과 Android/Web 플랫폼 파일을 추가했습니다.
+> 2026-09-17 업데이트: Flutter의 약 저장·복약 시간·DUR 결과·음성 대화와 Backend API 연결을 구현했습니다.
 > 현재 실행 방법과 검증 결과는 [앱 README](client-repo/app/README.md)를 보세요.
-> 아래 내용은 2026-09-06 최초 전달본 기록입니다.
+> [프론트 인수인계](client-repo/docs/contract/frontend-handoff.md)에 완료 범위와 AI·백엔드 후속 항목을 정리했습니다.
+> Git 연결과 업로드 방법은 바로 아래를 참고하세요. 이후 내용은 최초 전달본 기록입니다.
+
+## 현재 Git 저장소 (2026-09-17)
+
+현재 폴더 전체를 [daehwa-donghaeng-frontend](https://github.com/Frontier-starclub/daehwa-donghaeng-frontend)에 연결했습니다.
+원격 이름은 `origin`이고, 로컬 `main`은 기존 `origin/main`을 추적합니다.
+앱 작업 위치는 계속 `client-repo/app`입니다. 이 폴더 안에서 다시 `git init`하지 않습니다.
+
+연결만으로 변경 코드가 GitHub에 올라가지는 않습니다. 현재 폴더에서 변경 내용을 확인한 뒤 커밋·업로드합니다.
+
+```powershell
+git status
+git diff --stat
+git add .
+git diff --cached --stat
+git commit -m "feat: connect frontend medication and chat flows"
+git push origin main
+```
+
+루트 `.gitignore`는 SDK·참고용 백엔드·가상환경·테스트 산출물과 개인 환경 설정을 제외합니다.
+기존에 추적되던 `output/tooling/flutter` 참조도 Git 추적 대상에서 제외했으며, PC의 SDK 파일은 유지합니다.
+기존 `output/home-preview.html`은 계속 관리합니다. GitHub 인증이 필요하면 Git Credential Manager의 로그인 안내를 따릅니다.
+
+## 최초 전달본 기록 (2026-09-06)
 
 2026-09-06 세션 산출물입니다. 두 덩어리로 나뉘어 있습니다.
 
