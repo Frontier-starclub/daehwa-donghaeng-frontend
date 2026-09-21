@@ -13,9 +13,10 @@ class Settings(BaseSettings):
 
     anthropic_api_key: str | None = None
     ocr_model: str = "claude-opus-5"
+    chat_model: str = "claude-opus-5"
 
     data_go_kr_service_key: str | None = None
-    mfds_base_url: str = "http://apis.data.go.kr/1471000"
+    mfds_base_url: str = "https://apis.data.go.kr/1471000"
 
     model_config = SettingsConfigDict(
         env_file=".env",

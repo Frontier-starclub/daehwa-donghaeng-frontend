@@ -2,7 +2,7 @@ from fastapi import FastAPI
 
 from app.config import get_settings
 from app.errors import register_error_handlers
-from app.routers import chat, drugs, dur, ocr
+from app.routers import chat, dur, ocr
 
 settings = get_settings()
 
@@ -26,4 +26,3 @@ def liveness() -> dict[str, str]:
 app.include_router(ocr.router)
 app.include_router(dur.router)
 app.include_router(chat.router)
-app.include_router(drugs.router)

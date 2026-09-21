@@ -21,3 +21,6 @@ __pycache__/
 .pytest_cache/
 *.py[cod]
 *.log
+
+# uv 사용 여부 불확실에 따른 ignore 처리
+/client-repo/ai/uv.lock

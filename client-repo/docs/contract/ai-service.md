@@ -35,7 +35,7 @@ compose healthcheck가 이 경로를 본다.
 
 | 필드 | 값 |
 | --- | --- |
-| `image` | JPEG 또는 PNG, 최대 10MiB |
+| `image` | JPEG 또는 PNG. 원본 10MiB 이하이며 remote 모드는 base64 10MB 제한 때문에 원본 약 7.15MiB 이하 |
 
 **응답 200** — 백엔드 `RecognizedMedication`과 동일
 
@@ -62,7 +62,7 @@ compose healthcheck가 이 경로를 본다.
 | 상태 | code | 상황 |
 | --- | --- | --- |
 | 415 | `UNSUPPORTED_IMAGE` | JPEG/PNG가 아님 |
-| 413 | `IMAGE_TOO_LARGE` | 10MiB 초과 |
+| 413 | `IMAGE_TOO_LARGE` | 원본 10MiB 초과 또는 remote 전송 시 base64 10MB 초과 |
 | 502 | `OCR_UPSTREAM_ERROR` | 외부 API 호출 실패 |
 
 빈 결과(`items: []`)는 오류가 아니라 200이다. 백엔드가 이를 `OCR_EMPTY`로 처리한다.
@@ -101,8 +101,10 @@ compose healthcheck가 이 경로를 본다.
 `medication_ids`에는 **요청에서 받은 `id`를 그대로** 넣는다. 앱이 이 값으로 어떤 약이
 문제인지 표시한다.
 
-`warning_type` 값은 식약처 API 분류를 따른다: `usjnt_taboo`(병용금기),
-`elderly_caution`(노인주의), `efficacy_overlap`(효능군중복).
+이번 릴리스에서 `warning_type`은 `usjnt_taboo`(병용금기)와 `unverified`(품목을
+확인하지 못함)만 사용한다. `elderly_caution`(노인주의)과
+`efficacy_overlap`(효능군중복)은 범위 밖이다. `unverified`는 해당 약의 ID 하나만
+담으며, 이름 매핑이 불확실할 때 잘못된 안전 판정을 내리는 대신 확인 불가로 닫는다.
 
 > 상담 권고 문구는 이 서비스가 내려주지 않는다. 백엔드 `DurCheckOut.disclaimer`가
 > 담당하며 앱이 그 값을 렌더링한다 (회의록 결정사항 2).
@@ -138,36 +140,21 @@ compose healthcheck가 이 경로를 본다.
 이 엔드포인트는 **상태를 갖지 않는다.** 세션 상태, 메시지 순서, 멱등성
 (`client_message_id`)은 전부 백엔드가 관리한다.
 
+이번 릴리스에서는 대화 이력을 AI 서비스에 전달하지 않는 단발 응답으로 동작한다.
+첫 인사(`opening: true`)는 외부 모델을 호출하지 않는 고정 인사말이다. 일반 응답은
+고령자 말벗 톤의 짧은 평문으로 생성하며 진단, 증상 해석, 복약 지시는 하지 않는다.
+긴급 증상이나 과다복용은 119 또는 가족·의사·약사에게 즉시 연락하도록, 자해·자살
+암시는 자살예방상담전화 109에 연락하도록 안내한다. 이 안전 문구와 `unverified`
+사용자 문구는 현재 잠정안이며 PM 확인 후 문구를 확정한다.
+
 음성은 앱에서 STT/TTS로 처리하므로 이 서비스는 텍스트만 다룬다
 (백엔드 `docs/chat-session.md` 계약 — 음성 파일은 서버로 오지 않는다).
 
----
+**오류**
 
-## `POST /v1/drugs/resolve`
-
-약 이름을 품목기준코드로 매핑한다. **화면설계서 Blocker B.**
-
-백엔드는 이 엔드포인트를 직접 부르지 않는다 — `/v1/dur/check` 내부에서 쓰는 보조
-경로이며, 매핑 품질을 따로 측정하려고 밖으로 뺐다.
-
-**요청**
-
-```json
-{ "names": ["아모잘탄정", "메트포르민서방정"] }
-```
-
-**응답 200**
-
-```json
-{
-  "matches": [
-    { "name": "아모잘탄정", "item_seq": "200808876", "ingredient_code": null, "confidence": 0.98 }
-  ]
-}
-```
-
-매칭 실패는 **오류가 아니다.** `item_seq: null`, `confidence: 0.0`으로 돌려주고
-DUR 단계에서 "확인 불가"로 처리한다. 잘못된 매핑보다 확인 불가가 안전하다.
+| 상태 | code | 상황 |
+| --- | --- | --- |
+| 502 | `CHAT_UPSTREAM_ERROR` | 외부 모델 호출 또는 응답 검증 실패 |
 
 ---
 
@@ -180,15 +167,14 @@ DUR 단계에서 "확인 불가"로 처리한다. 잘못된 매핑보다 확인 
 ```
 
 백엔드 어댑터는 5xx를 `RuntimeError`로 바꾸고, 백엔드의 기존 예외 처리가 이를
-`502 OCR_PROVIDER_ERROR` / `502 DUR_PROVIDER_ERROR`로 매핑한다. 따라서 이 서비스가
-**5xx를 지키는 한 백엔드 로직 수정은 필요 없다.**
+`502 OCR_PROVIDER_ERROR` / `502 DUR_PROVIDER_ERROR` / `502 CHAT_PROVIDER_ERROR`로
+매핑한다. 따라서 이 서비스가 **5xx를 지키는 한 백엔드 로직 수정은 필요 없다.**
 
 ---
 
 ## 관련 공공 API
 
 - [DUR 품목정보](https://www.data.go.kr/data/15059486/openapi.do) — 병용금기·노인주의·효능군중복
-- [의약품 낱알식별 정보](https://www.data.go.kr/data/15057639/openapi.do) — 이름 → 품목기준코드
-- [의약품개요정보(e약은요)](https://www.data.go.kr/data/15075057/openapi.do)
 
-요청 파라미터가 요구하는 식별자는 **9/8 스파이크에서 실측 후 이 문서에 기록한다.**
+품목 목록과 병용금기 조회는 같은 DUR 품목정보 서비스의
+`getDurPrdlstInfoList03`과 `getUsjntTabooInfoList03`을 사용한다.

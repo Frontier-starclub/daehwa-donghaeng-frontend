@@ -100,10 +100,3 @@ def test_chat_opening_and_reply(client: TestClient) -> None:
     )
     assert reply.status_code == 200
     assert reply.json()["content"] != opening.json()["content"]
-
-
-def test_drugs_resolve_returns_one_match_per_name(client: TestClient) -> None:
-    response = client.post("/v1/drugs/resolve", json={"names": ["아모잘탄정", "타이레놀"]})
-    assert response.status_code == 200
-    matches = response.json()["matches"]
-    assert [match["name"] for match in matches] == ["아모잘탄정", "타이레놀"]

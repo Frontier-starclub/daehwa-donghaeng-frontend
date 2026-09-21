@@ -1,6 +1,7 @@
 """서비스 공통 예외와 핸들러.
 
-백엔드는 이 서비스의 5xx를 `OCR_PROVIDER_ERROR` / `DUR_PROVIDER_ERROR`로 매핑한다.
+백엔드는 이 서비스의 5xx를 `OCR_PROVIDER_ERROR` / `DUR_PROVIDER_ERROR` /
+`CHAT_PROVIDER_ERROR`로 매핑한다.
 따라서 실패는 반드시 5xx + {code, message} 형태로 나가야 한다.
 """
 

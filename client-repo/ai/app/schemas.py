@@ -55,22 +55,7 @@ class ChatReplyIn(BaseModel):
 
 
 class ChatReplyOut(BaseModel):
-    content: str
-
-
-class DrugResolveIn(BaseModel):
-    names: list[str] = Field(min_length=1, max_length=30)
-
-
-class DrugMatch(BaseModel):
-    name: str
-    item_seq: str | None = None
-    ingredient_code: str | None = None
-    confidence: float = Field(ge=0, le=1)
-
-
-class DrugResolveOut(BaseModel):
-    matches: list[DrugMatch]
+    content: str = Field(min_length=1)
 
 
 class ErrorBody(BaseModel):
