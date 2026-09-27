@@ -1,8 +1,9 @@
 # Flutter 프론트엔드
 
-2026-09-17 기준, 기존 디자인을 유지하면서 사용자 등록·약 촬영/OCR·약 저장·복약 시간·DUR 결과·음성 대화를 구현했습니다.
-앱은 백엔드를 호출하고, 실제 OCR·식약처·LLM 구현은 AI 담당이 제공합니다.
-[완료 범위와 API 인수인계](../docs/contract/frontend-handoff.md)를 함께 전달하세요.
+사용자 등록·약 촬영/OCR·약 저장·복약 일정·기록·알림·DUR·문맥 대화·동의 설정·분석·보호자 리포트를 구현했습니다.
+앱은 Backend를 호출하고 Backend가 AI 서비스의 Gemini/Claude·식약처 API를 사용합니다.
+[현재 구현 범위](../docs/contract/complete-flows.md), [Gemini 설정](../docs/contract/gemini.md),
+Backend 저장소의 [로컬 Android 실행 안내](https://github.com/Frontier-starclub/daehwa-donghaeng/blob/feature/gemini-integration/docs/local-android.md)를 참고하세요.
 
 ## 서버 없이 화면 확인
 
@@ -73,7 +74,8 @@ lib/features/home/          오늘의 약과 각 기능 진입
 
 화면은 Repository로 데이터를 받습니다. 외부 AI API 키는 Flutter에 넣지 않습니다.
 Android 마이크 권한과 음성 서비스 조회 설정을 추가했으며 휴대폰 마이크를 사용합니다. Bluetooth 전용 연결은 이번 범위에서 비활성화했습니다.
-배경 복약 알림·보호자 기능·분석 리포트·Play 배포는 포함하지 않습니다.
+Android 복약·대화 알림, 동의에 따른 보호자 리포트와 분석 화면을 포함합니다.
+Play 배포용 서명과 정식 사용자 인증은 별도 작업입니다.
 
 ## 자동 검증
 
@@ -102,6 +104,8 @@ flutter test --no-pub --dart-define=RUN_BACKEND_INTEGRATION=true
 AI는 백엔드 내부 mock이고 외부 API 키는 필요 없습니다. 기존 사용자 DB를 사용하지 않습니다.
 이 검증은 PostgreSQL의 동시성·마이그레이션이나 실제 AI 품질 검증을 대신하지 않습니다.
 
-Android SDK와 실기기가 이 환경에 없어 APK 빌드·실제 촬영/STT/TTS 검증은 남아 있습니다.
+2026-09-22에는 Android SDK를 준비해 debug APK 빌드도 완료했습니다.
+현재 검증은 [검증 기록](docs/verification/2026-09-22.md)을 기준으로 합니다.
+미니 PC에는 KVM 가속이 없어 에뮬레이터 부팅이 완료되지 않았으며 Android E2E는 남아 있습니다.
 휴대폰에서 마이크 허용/거부, 한국어 인식, 답변 읽기/중지, 앱 백그라운드 전환, 카메라 복귀를 확인해야 합니다.
 웹 빌드에는 CupertinoIcons 미포함 경고가 있으나 빌드는 성공했고 앱의 아이콘은 Material 아이콘입니다.

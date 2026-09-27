@@ -14,6 +14,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, File, UploadFile
 from pydantic import BaseModel, Field, ValidationError
 
+from app.clients import gemini
 from app.config import get_settings
 from app.errors import AiServiceError, UpstreamError
 from app.ocr_postprocess import (
@@ -50,7 +51,7 @@ _OCR_USER_PROMPT = """이 약봉투에서 약별로 다음 두 값만 옮겨 적
 
 
 class _ExtractedMedication(BaseModel):
-    """Claude 구조화 출력용 모델. 공개 API 모델과 의도적으로 분리한다."""
+    """LLM 구조화 출력용 모델. 공개 API 모델과 의도적으로 분리한다."""
 
     name: str | None = Field(description="이미지에 보이는 약 이름 표기 원문")
     frequency_text: str | None = Field(description="이미지에 보이는 용법 문구 원문")
@@ -105,7 +106,7 @@ def _postprocess_items(extracted: Iterable[object]) -> list[MedicationItem]:
         if frequency is None:
             frequency_none_count += 1
 
-        # 현재 Claude 추출 스키마에는 confidence가 없다. 그래도 후처리 경계는 가짜
+        # 현재 LLM 추출 스키마에는 confidence가 없다. 그래도 후처리 경계는 가짜
         # 추출기나 향후 provider가 넘긴 값을 검증하고, 백분율 같은 값은 추정 변환하지 않는다.
         try:
             confidence = validate_confidence(_field(raw, "confidence"))
@@ -228,18 +229,44 @@ async def recognize_prescription_label(
     if len(contents) > MAX_IMAGE_BYTES:
         raise AiServiceError(413, "IMAGE_TOO_LARGE", "이미지는 10MiB 이하여야 합니다.")
 
-    if get_settings().is_mock:
+    settings = get_settings()
+    if settings.is_mock:
         return OcrOut(items=_MOCK_ITEMS)
 
-    if _encoded_size(len(contents)) > MAX_BASE64_IMAGE_BYTES:
+    if (
+        settings.llm_provider == "anthropic"
+        and _encoded_size(len(contents)) > MAX_BASE64_IMAGE_BYTES
+    ):
         raise AiServiceError(
             413,
             "IMAGE_TOO_LARGE",
             "base64 인코딩 후 이미지는 10MB 이하여야 합니다.",
         )
 
-    settings = get_settings()
     try:
+        if settings.llm_provider == "gemini":
+            text = await gemini.GeminiClient(settings.gemini_api_key).generate_async(
+                gemini.GeminiRequest(
+                    model=settings.gemini_ocr_model,
+                    system=_OCR_SYSTEM_PROMPT,
+                    inputs=[
+                        {
+                            "type": "user_input",
+                            "content": [
+                                {
+                                    "type": "image",
+                                    "mime_type": image.content_type,
+                                    "data": base64.b64encode(contents).decode("ascii"),
+                                },
+                                {"type": "text", "text": _OCR_USER_PROMPT},
+                            ],
+                        }
+                    ],
+                    schema=_OcrExtraction,
+                )
+            )
+            extracted = _OcrExtraction.model_validate_json(text)
+            return OcrOut(items=_postprocess_items(extracted.items))
         if not settings.anthropic_api_key:
             raise ValueError("ANTHROPIC_API_KEY is not configured")
         extracted = await _request_extraction(
@@ -254,4 +281,4 @@ async def recognize_prescription_label(
         logger.warning("OCR upstream failure type=%s", type(exc).__name__)
         raise UpstreamError(
             "OCR_UPSTREAM_ERROR", "약봉투 인식 서비스 호출에 실패했습니다."
-        ) from exc
+        ) from None

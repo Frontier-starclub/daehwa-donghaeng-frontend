@@ -49,6 +49,60 @@ class _MedicationListScreenState extends State<MedicationListScreen> {
     }
   }
 
+  Future<void> _edit(Medication item, {bool end = false}) async {
+    final management = widget.repository;
+    if (management is! MedicationManagement) return;
+    final name = TextEditingController(text: item.name);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(end ? '이 약의 복용을 종료할까요?' : '약 이름 수정'),
+        content: end
+            ? const Text(
+                '앱의 알림과 활성 약 목록에서 제외됩니다. 지난 기록은 남아요. 실제 복용 변경은 의사·약사에게 확인해주세요.',
+              )
+            : TextField(
+                controller: name,
+                maxLength: 100,
+                decoration: const InputDecoration(labelText: '약 이름'),
+              ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(end ? '종료' : '저장'),
+          ),
+        ],
+      ),
+    );
+    final value = name.text.trim();
+    name.dispose();
+    if (!mounted || confirmed != true || (!end && value.isEmpty)) return;
+    setState(() => _loading = true);
+    try {
+      if (end) {
+        await (management as MedicationManagement).endMedication(item.id);
+      } else {
+        await (management as MedicationManagement)
+            .renameMedication(item.id, value);
+      }
+      if (mounted) {
+        _loading = false;
+        await _load();
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = error is ApiException ? error.message : '약 정보를 변경하지 못했어요.';
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('내 약 목록')),
@@ -92,6 +146,16 @@ class _MedicationListScreenState extends State<MedicationListScreen> {
                           : '복약 시간 설정',
                     ),
                   ),
+                  if (widget.repository is MedicationManagement) ...[
+                    TextButton(
+                      onPressed: () => _edit(item),
+                      child: const Text('이름 수정'),
+                    ),
+                    TextButton(
+                      onPressed: () => _edit(item, end: true),
+                      child: const Text('복용 종료'),
+                    ),
+                  ],
                   const SizedBox(height: AppSpacing.lg),
                 ],
               ],

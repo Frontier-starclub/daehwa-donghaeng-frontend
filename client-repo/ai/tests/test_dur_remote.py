@@ -48,7 +48,7 @@ def _verified(query: MedicationQuery, profile: DurProfile) -> MedicationDurLooku
         query=query,
         status=MedicationLookupStatus.VERIFIED,
         matched_item_name=profile.query.item_name,
-        item_sequences=(),
+        item_sequences=(query.item_seq or "fixture-" + (profile.query.item_name or "item"),),
         profile=profile,
     )
 
@@ -76,7 +76,7 @@ def _too_broad(query: MedicationQuery) -> MedicationDurLookup:
         query=query,
         status=MedicationLookupStatus.TOO_BROAD,
         matched_item_name=item_name,
-        item_sequences=(),
+        item_sequences=(query.item_seq or "fixture-" + (profile.query.item_name or "item"),),
         profile=profile,
     )
 
@@ -89,9 +89,16 @@ class FakeClient:
         self.resolver = resolver
         self.queries: tuple[MedicationQuery, ...] = ()
 
+    def start_deadline(self):
+        return None
+
+    def lookup_cautions_many(self, item_sequences, *, deadline=None):
+        return tuple(() for _ in item_sequences)
+
     def lookup_many(
         self,
         queries: Sequence[MedicationQuery],
+        *, deadline=None,
     ) -> tuple[MedicationDurLookup, ...]:
         self.queries = tuple(queries)
         return tuple(self.resolver(query) for query in queries)
@@ -119,19 +126,18 @@ def test_name_candidates_strip_dose_parenthetical_and_formulation_tail() -> None
     assert dur._name_candidates("정 1mg") == ()
 
 
-def test_remote_single_medication_skips_mfds_even_without_key(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(dur, "get_settings", lambda: SimpleNamespace(is_mock=False))
+def test_remote_single_medication_checks_elderly_cautions(monkeypatch):
+    from app.clients.mfds import ProductCaution
 
-    def fail_if_called() -> None:
-        pytest.fail("약이 한 건이면 MFDS client를 만들면 안 됩니다")
-
-    monkeypatch.setattr(dur, "get_mfds_client", fail_if_called)
-    result = dur.check_interactions(
-        DurCheckIn(medications=[_medication("a", "타이레놀정")])
+    client = FakeClient(lambda query: _verified(query, _profile("타이레놀정")))
+    client.lookup_cautions_many = lambda sequences, **kwargs: (
+        (ProductCaution(kind="elderly", message="공식 주의사항"),),
     )
-    assert result.warnings == []
+    monkeypatch.setattr(dur, "get_settings", lambda: SimpleNamespace(is_mock=False))
+    monkeypatch.setattr(dur, "get_mfds_client", lambda: client)
+    result = dur.check_interactions(DurCheckIn(medications=[_medication("a", "타이레놀정")]))
+    assert result.warnings[0].warning_type == "elderly"
+    assert result.warnings[0].medication_ids == ["a"]
 
 
 def test_pair_is_checked_in_both_directions_and_all_evidence_is_kept() -> None:
@@ -197,6 +203,8 @@ def test_raw_mfds_response_shape_flows_through_client_and_router() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         operation = request.url.path.rsplit("/", 1)[-1]
         item_name = request.url.params.get("itemName", "")
+        if operation in {"getOdsnAtentInfoList03", "getEfcyDplctInfoList03"}:
+            return httpx.Response(200, json=response(0))
         if operation == "getDurPrdlstInfoList03":
             product_names.append(item_name)
             if item_name in {"바이테롤정", "이트라녹스정"}:

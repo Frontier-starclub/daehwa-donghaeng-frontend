@@ -8,7 +8,9 @@
 - DurWarning          <-> DurProviderWarning
 """
 
-from pydantic import BaseModel, Field
+from typing import Literal
+
+from pydantic import BaseModel, Field, model_validator
 
 
 class MedicationItem(BaseModel):
@@ -48,10 +50,27 @@ class DurCheckOut(BaseModel):
     warnings: list[DurWarning]
 
 
+class ChatHistoryItem(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=4000)
+
+
 class ChatReplyIn(BaseModel):
     opening: bool = False
     user_message_count: int = Field(default=0, ge=0)
     content: str = Field(default="", max_length=2000)
+    history: list[ChatHistoryItem] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def complete_turns(self):
+        if len(self.history) % 2 or any(
+            item.role != ("user" if i % 2 == 0 else "assistant")
+            for i, item in enumerate(self.history)
+        ):
+            raise ValueError("history must contain complete user/assistant turns")
+        if self.opening and self.history:
+            raise ValueError("an opening cannot include conversation history")
+        return self
 
 
 class ChatReplyOut(BaseModel):

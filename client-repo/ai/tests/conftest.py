@@ -9,6 +9,7 @@ from app.main import app
 def _mock_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     """모든 테스트는 외부 API를 호출하지 않는다."""
     monkeypatch.setenv("PROVIDER_MODE", "mock")
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

@@ -13,6 +13,12 @@ import '../dur/dur_screen.dart';
 import '../chat/chat_repository.dart';
 import '../chat/chat_screen.dart';
 import '../chat/voice_service.dart';
+import '../../core/reminders.dart';
+import '../settings/profile_repository.dart';
+import '../settings/settings_screen.dart';
+import '../settings/insights_screen.dart';
+import '../settings/caregivers_screen.dart';
+import '../medication/history_screen.dart';
 
 /// HOME-01 — 홈.
 ///
@@ -32,6 +38,8 @@ class HomeScreen extends StatefulWidget {
     required this.dur,
     required this.chat,
     required this.voice,
+    this.profile,
+    this.reminders,
   });
   final MedicationDataSource repository;
   final OcrRepository ocrRepository;
@@ -41,12 +49,14 @@ class HomeScreen extends StatefulWidget {
   final DurDataSource dur;
   final ChatDataSource chat;
   final VoiceService Function() voice;
+  final ProfileRepository? profile;
+  final ReminderService? reminders;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   MedicationDataSource get _repository => widget.repository;
   bool _initialized = false;
   final Set<String> _responding = {};
@@ -60,7 +70,38 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    widget.reminders?.onOpen = _openReminder;
     _load();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    widget.reminders?.onOpen = null;
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_navigating) _load();
+  }
+
+  void _openReminder() {
+    if (!mounted || _navigating || _loading) return;
+    final route = widget.reminders?.pendingRoute;
+    widget.reminders?.pendingRoute = null;
+    if (route == 'chat') {
+      _open(
+        ChatScreen(
+          repository: widget.chat,
+          voice: widget.voice(),
+          isMock: widget.isMock,
+        ),
+      );
+    } else if (route == 'medication') {
+      _load();
+    }
   }
 
   Future<void> _load() async {
@@ -80,6 +121,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _events = events;
         _loading = false;
       });
+      await widget.reminders?.sync();
+      if (mounted) _openReminder();
     } on ApiException catch (error) {
       if (!mounted || ticket != _loadGeneration) return;
       setState(() {
@@ -211,6 +254,40 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             child: const Text('이야기 나누기'),
           ),
+          const SizedBox(height: AppSpacing.lg),
+          if (widget.reminders != null)
+            ListenableBuilder(
+              listenable: widget.reminders!,
+              builder: (context, _) => widget.reminders!.notice == null
+                  ? const SizedBox.shrink()
+                  : Text(widget.reminders!.notice!),
+            ),
+          if (widget.repository is MedicationManagement)
+            OutlinedButton(
+              onPressed: () => _open(
+                HistoryScreen(
+                  repository: widget.repository as MedicationManagement,
+                ),
+              ),
+              child: const Text('지난 복약 기록'),
+            ),
+          if (widget.profile != null) ...[
+            OutlinedButton(
+              onPressed: () =>
+                  _open(InsightsScreen(repository: widget.profile!)),
+              child: const Text('내 변화 요약'),
+            ),
+            OutlinedButton(
+              onPressed: () =>
+                  _open(CaregiversScreen(repository: widget.profile!)),
+              child: const Text('보호자 연결과 리포트'),
+            ),
+            OutlinedButton(
+              onPressed: () =>
+                  _open(SettingsScreen(repository: widget.profile!)),
+              child: const Text('설정'),
+            ),
+          ],
         ],
       ),
     );

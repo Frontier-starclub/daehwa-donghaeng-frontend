@@ -89,10 +89,6 @@ def check_interactions(payload: DurCheckIn) -> DurCheckOut:
             )
         return DurCheckOut(warnings=[])
 
-    # 비교할 쌍이 없으므로 외부 API나 키가 없어도 안전하게 빈 결과를 낼 수 있다.
-    if len(payload.medications) < 2:
-        return DurCheckOut(warnings=[])
-
     try:
         return _check_remote(payload.medications, get_mfds_client())
     except UpstreamError:
@@ -123,10 +119,17 @@ def _check_remote(
         query_positions.append(index)
         queries.append(query)
 
-    looked_up = client.lookup_many(queries)
+    deadline = client.start_deadline()
+    looked_up = client.lookup_many(queries, deadline=deadline)
     if len(looked_up) != len(query_positions):
         raise ValueError("MFDS result count does not match request")
     for position, result in zip(query_positions, looked_up, strict=True):
+        if len(result.item_sequences) > 1:
+            # A partial name may match different products. Never merge their
+            # ingredients into a contraindication finding for this medicine.
+            from dataclasses import replace
+
+            result = replace(result, status=MedicationLookupStatus.TOO_BROAD)
         results[position] = result
 
     warnings: list[DurWarning] = []
@@ -159,6 +162,70 @@ def _check_remote(
                 )
             )
 
+    # Additional lists require an exact product. Ambiguous name matches cannot
+    # be treated as a confirmed elderly/duplicate-class finding.
+    exact = []
+    positions = []
+    for index, (medication, result) in enumerate(zip(medications, results, strict=True)):
+        if result is None or result.status is not MedicationLookupStatus.VERIFIED:
+            continue
+        sequence = medication.item_seq or (
+            result.item_sequences[0] if len(result.item_sequences) == 1 else None
+        )
+        if sequence:
+            exact.append(sequence.strip())
+            positions.append(index)
+        else:
+            warnings.append(
+                _unverified_warning(
+                    medication,
+                    "품목을 하나로 확인하지 못해 노인주의·효능군중복을 확인하지 못했습니다.",
+                )
+            )
+    try:
+        cautions = client.lookup_cautions_many(exact, deadline=deadline)
+    except UpstreamError:
+        warnings.append(
+            DurWarning(
+                warning_type="unverified",
+                medication_ids=[item.id for item in medications],
+                message="노인주의·효능군중복 정보를 끝까지 확인하지 못했습니다. 다시 확인해주세요.",
+            )
+        )
+        return DurCheckOut(warnings=warnings)
+    duplicate_groups = {}
+    for position, entries in zip(positions, cautions, strict=True):
+        medication = medications[position]
+        for entry in entries:
+            if entry.kind == "elderly":
+                warnings.append(
+                    DurWarning(
+                        warning_type="elderly",
+                        medication_ids=[medication.id],
+                        message=f"{medication.name}: 노인주의 목록에 등재되어 있습니다. "
+                        + (entry.message or "의사·약사에게 해당 여부를 확인해주세요."),
+                        source_code=entry.source_code,
+                    )
+                )
+            elif entry.effect:
+                # MFDS may subdivide an efficacy group by series. Preserve that
+                # distinction instead of grouping by broad drug class codes.
+                key = (entry.effect, entry.series or "")
+                duplicate_groups.setdefault(key, {})[medication.id] = (medication, entry)
+    for (effect, series), group in duplicate_groups.items():
+        if len(group) < 2:
+            continue
+        names = ", ".join(value[0].name for value in group.values())
+        warnings.append(
+            DurWarning(
+                warning_type="efficacy_duplicate",
+                medication_ids=list(group),
+                message=f"{names}: 식약처 효능군중복 목록의 {effect}"
+                + (f" / {series}" if series else "")
+                + " 항목이 겹칩니다. 의사·약사에게 확인해주세요.",
+                source_code=next(iter(group.values()))[1].source_code,
+            )
+        )
     return DurCheckOut(warnings=warnings)
 
 

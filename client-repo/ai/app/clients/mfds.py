@@ -32,6 +32,10 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 _PRODUCT_OPERATION = "DURPrdlstInfoService03/getDurPrdlstInfoList03"
 _CONTRAINDICATION_OPERATION = "DURPrdlstInfoService03/getUsjntTabooInfoList03"
+_CAUTION_OPERATIONS = {
+    "elderly": "DURPrdlstInfoService03/getOdsnAtentInfoList03",
+    "efficacy_duplicate": "DURPrdlstInfoService03/getEfcyDplctInfoList03",
+}
 
 _PAGE_SIZE = 500
 _MAX_CONTRAINDICATION_ROWS = 5_000
@@ -197,6 +201,15 @@ class MedicationDurLookup:
 
 
 @dataclass(frozen=True, slots=True)
+class ProductCaution:
+    kind: str
+    message: str | None
+    effect: str | None = None
+    series: str | None = None
+    source_code: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class _Page:
     total_count: int
     rows: tuple[dict[str, object], ...]
@@ -315,6 +328,9 @@ class MfdsClient:
             max_entries=_CACHE_MAX_ENTRIES,
             clock=clock,
         )
+        self._caution_cache: _TtlCache[str, tuple[ProductCaution, ...]] = _TtlCache(
+            ttl_seconds=cache_ttl_seconds, max_entries=_CACHE_MAX_ENTRIES, clock=clock,
+        )
 
     def __enter__(self) -> MfdsClient:
         return self
@@ -331,6 +347,54 @@ class MfdsClient:
 
         self._product_cache.clear()
         self._dur_cache.clear()
+        self._caution_cache.clear()
+
+    def lookup_cautions_many(
+        self, item_sequences: Sequence[str], *, deadline: MfdsDeadline | None = None,
+    ) -> tuple[tuple[ProductCaution, ...], ...]:
+        """Fetch official elderly/efficacy lists for exact products under one deadline."""
+        request_deadline = deadline or self.start_deadline()
+        try:
+            return self._run_batch(tuple(item_sequences),
+                                   lambda seq: self._lookup_cautions(seq, request_deadline),
+                                   request_deadline)
+        except Exception:
+            raise _public_error() from None
+
+    def _lookup_cautions(self, item_seq: str, deadline: MfdsDeadline):
+        cached = self._caution_cache.get(item_seq)
+        if cached is not None:
+            return cached
+        cautions = []
+        for kind, operation in _CAUTION_OPERATIONS.items():
+            first = self._fetch_page(operation, {"itemSeq": item_seq},
+                                     page_number=1, deadline=deadline)
+            if first.total_count > _MAX_CONTRAINDICATION_ROWS:
+                raise _MfdsFailure
+            rows = list(first.rows)
+            for page in range(2, math.ceil(first.total_count / _PAGE_SIZE) + 1):
+                other = self._fetch_page(operation, {"itemSeq": item_seq},
+                                         page_number=page, deadline=deadline)
+                if other.total_count != first.total_count:
+                    raise _MfdsFailure
+                rows.extend(other.rows)
+            if len(rows) != first.total_count:
+                raise _MfdsFailure
+            for row in rows:
+                if _required_text(row, "ITEM_SEQ") != item_seq:
+                    raise _MfdsFailure
+                effect = _optional_text(row, "EFFECT_NAME")
+                series = _optional_text(row, "SERS_NAME")
+                if kind == "efficacy_duplicate" and not effect:
+                    raise _MfdsFailure
+                code = _optional_text(row, "DUR_SEQ")
+                cautions.append(ProductCaution(
+                    kind=kind, message=_optional_text(row, "PROHBT_CONTENT"),
+                    effect=effect, series=series, source_code=code[:50] if code else None,
+                ))
+        result = tuple(cautions)
+        self._caution_cache.put(item_seq, result)
+        return result
 
     def start_deadline(self, seconds: float | None = None) -> MfdsDeadline:
         budget = self._deadline_seconds if seconds is None else seconds

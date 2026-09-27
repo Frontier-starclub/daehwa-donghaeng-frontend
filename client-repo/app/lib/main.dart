@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/api_client.dart';
@@ -17,6 +18,9 @@ import 'features/onboarding/bootstrap_screen.dart';
 import 'features/dur/dur_repository.dart';
 import 'features/chat/chat_repository.dart';
 import 'features/chat/voice_service.dart';
+import 'core/reminders.dart';
+import 'features/settings/profile_repository.dart';
+import 'features/settings/settings_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,12 +36,14 @@ void main() {
     // 실기기 테스트에서는 --dart-define=API_BASE_URL=http://<개발PC IP>:8090/api/v1
     baseUrl: const String.fromEnvironment(
       'API_BASE_URL',
-      defaultValue: ApiClient.emulatorBaseUrl,
+      defaultValue:
+          kIsWeb ? 'http://localhost:8090/api/v1' : ApiClient.emulatorBaseUrl,
     ),
     deviceIdStore: deviceIdStore,
   );
 
-  final remote = MedicationRepository(apiClient);
+  final reminders = ReminderService(apiClient);
+  final remote = MedicationRepository(apiClient, reminders: reminders);
   runApp(
     DaehwaApp(
       repository: mock ? MockMedicationRepository() : remote,
@@ -49,6 +55,8 @@ void main() {
       userRepository: mock ? null : UserRepository(apiClient, deviceIdStore),
       dur: mock ? const MockDurRepository() : DurRepository(apiClient),
       chat: mock ? MockChatRepository() : ChatRepository(apiClient),
+      profile: mock ? null : ProfileRepository(apiClient, reminders: reminders),
+      reminders: mock ? null : reminders,
       onDispose: apiClient.close,
     ),
   );
@@ -67,6 +75,8 @@ class DaehwaApp extends StatefulWidget {
     this.dur,
     this.chat,
     this.voice,
+    this.profile,
+    this.reminders,
   });
   final MedicationDataSource repository;
   final OcrRepository ocrRepository;
@@ -78,6 +88,8 @@ class DaehwaApp extends StatefulWidget {
   final DurDataSource? dur;
   final ChatDataSource? chat;
   final VoiceService? voice;
+  final ProfileRepository? profile;
+  final ReminderService? reminders;
   @override
   State<DaehwaApp> createState() => _DaehwaAppState();
 }
@@ -111,6 +123,8 @@ class _DaehwaAppState extends State<DaehwaApp> {
       dur: _dur,
       chat: _chat,
       voice: () => _voice ??= widget.voice ?? DeviceVoiceService(),
+      profile: widget.profile,
+      reminders: widget.reminders,
     );
     return MaterialApp(
       title: '대화동행',
@@ -125,7 +139,9 @@ class _DaehwaAppState extends State<DaehwaApp> {
               repository: widget.userRepository!,
               initialName:
                   const String.fromEnvironment('BOOTSTRAP_DISPLAY_NAME'),
-              child: home,
+              child: widget.profile == null
+                  ? home
+                  : ProfileGate(repository: widget.profile!, child: home),
             ),
     );
   }

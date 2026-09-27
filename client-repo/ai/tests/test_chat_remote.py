@@ -12,6 +12,7 @@ from app.schemas import ChatReplyIn
 def _remote_settings(**overrides: Any) -> SimpleNamespace:
     values = {
         "is_mock": False,
+        "llm_provider": "anthropic",
         "anthropic_api_key": "test-anthropic-key",
         "chat_model": "test-chat-model",
     }

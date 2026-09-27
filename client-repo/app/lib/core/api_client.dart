@@ -22,7 +22,7 @@ class ApiClient {
     required this.baseUrl,
     required DeviceIdStore deviceIdStore,
     http.Client? httpClient,
-    this.timeout = const Duration(seconds: 30),
+    this.timeout = const Duration(seconds: 60),
   })  : _deviceIdStore = deviceIdStore,
         _http = httpClient ?? http.Client();
 
@@ -79,6 +79,10 @@ class ApiClient {
           headers: await _headers(),
           body: body == null ? null : jsonEncode(body),
         ),
+      );
+
+  Future<dynamic> delete(String path) => _send(
+        () async => _http.delete(_uri(path), headers: await _headers()),
       );
 
   /// 약봉투 이미지 업로드.

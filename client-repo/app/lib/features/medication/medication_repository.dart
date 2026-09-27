@@ -1,5 +1,8 @@
 import '../../core/api_client.dart';
 import '../../core/json_decode.dart';
+import '../../core/api_exception.dart';
+import '../../core/reminders.dart';
+import 'package:uuid/uuid.dart';
 import '../ocr/ocr_models.dart';
 import 'medication_models.dart';
 
@@ -23,10 +26,19 @@ abstract interface class MedicationDataSource {
   );
 }
 
-class MedicationRepository implements MedicationDataSource {
-  const MedicationRepository(this._api);
+abstract interface class MedicationManagement {
+  Future<List<MedicationSchedule>> schedules(String medicationId);
+  Future<void> endMedication(String medicationId);
+  Future<void> renameMedication(String medicationId, String name);
+  Future<List<MedicationEvent>> history(DateTime start, DateTime end);
+}
+
+class MedicationRepository
+    implements MedicationDataSource, MedicationManagement {
+  MedicationRepository(this._api, {this.reminders});
 
   final ApiClient _api;
+  final ReminderService? reminders;
 
   /// 앱 최초 실행 시 사용자 등록. 같은 device_id면 기존 사용자를 돌려준다(멱등).
   Future<void> bootstrap({
@@ -93,13 +105,31 @@ class MedicationRepository implements MedicationDataSource {
     String? scanId,
     required List<MedicationDraft> items,
   }) async {
-    final data = await _api.post(
-      '/medications/batch',
-      body: {
-        'scan_id': scanId,
-        'items': items.map((item) => item.toJson()).toList(),
-      },
-    );
+    final requestId = const Uuid().v4();
+    dynamic data;
+    try {
+      data = await _api.post(
+        '/medications/batch',
+        body: {
+          'request_id': requestId,
+          'scan_id': scanId,
+          'items': items.map((item) => item.toJson()).toList(),
+        },
+      );
+    } catch (failure, stack) {
+      if (failure is ApiException &&
+          failure.statusCode >= 400 &&
+          failure.statusCode < 500) {
+        rethrow;
+      }
+      // Resolve a lost response without repeating a registration. A missing
+      // result remains uncertain and the controller offers the medication list.
+      try {
+        data = await _api.get('/medication-registrations/$requestId');
+      } catch (_) {
+        Error.throwWithStackTrace(failure, stack);
+      }
+    }
     return _decodeMedications(data);
   }
 
@@ -114,5 +144,45 @@ class MedicationRepository implements MedicationDataSource {
         'schedules': schedules.map((item) => item.toJson()).toList(),
       },
     );
+    await reminders?.sync(requestPermission: true);
+  }
+
+  @override
+  Future<List<MedicationSchedule>> schedules(String medicationId) async {
+    final data =
+        await _api.get('/medications/$medicationId/schedules') as List<dynamic>;
+    return data
+        .map(
+          (item) => MedicationSchedule(
+            timeSlot: item['time_slot'] as String,
+            remindAt: item['remind_at'] as String,
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Future<void> endMedication(String medicationId) async {
+    await _api.patch('/medications/$medicationId', body: {'status': 'ended'});
+    await reminders?.sync();
+  }
+
+  @override
+  Future<void> renameMedication(String medicationId, String name) async {
+    await _api.patch('/medications/$medicationId', body: {'name': name});
+  }
+
+  @override
+  Future<List<MedicationEvent>> history(DateTime start, DateTime end) async {
+    final data = await _api.get(
+      '/medication-events',
+      query: {
+        'start': start.toIso8601String().substring(0, 10),
+        'end': end.toIso8601String().substring(0, 10),
+      },
+    ) as List<dynamic>;
+    return data
+        .map((item) => MedicationEvent.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 }

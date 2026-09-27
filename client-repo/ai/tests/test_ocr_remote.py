@@ -16,6 +16,7 @@ from app.schemas import OcrOut
 def _settings(*, is_mock: bool = False, api_key: str | None = "test-key") -> SimpleNamespace:
     return SimpleNamespace(
         is_mock=is_mock,
+        llm_provider="anthropic",
         anthropic_api_key=api_key,
         ocr_model="claude-opus-5",
     )

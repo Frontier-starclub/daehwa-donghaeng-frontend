@@ -18,7 +18,7 @@ class AiServiceError(Exception):
 
 
 class UpstreamError(AiServiceError):
-    """외부 API(Claude, 식약처) 호출 실패."""
+    """외부 API(Claude, Gemini, 식약처) 호출 실패."""
 
     def __init__(self, code: str, message: str) -> None:
         super().__init__(502, code, message)

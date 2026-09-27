@@ -9,6 +9,7 @@ class MedicationEvent {
     required this.timeSlot,
     required this.remindAt,
     required this.status,
+    this.scheduledAt,
   });
 
   final String id;
@@ -21,6 +22,7 @@ class MedicationEvent {
 
   /// pending | taken | not_taken
   final String status;
+  final DateTime? scheduledAt;
 
   bool get isAnswered => status != 'pending';
   bool get wasTaken => status == 'taken';
@@ -46,6 +48,7 @@ class MedicationEvent {
         timeSlot: json['time_slot'] as String,
         remindAt: json['remind_at'] as String,
         status: json['status'] as String,
+        scheduledAt: DateTime.tryParse(json['scheduled_at'] as String? ?? ''),
       );
 }
 

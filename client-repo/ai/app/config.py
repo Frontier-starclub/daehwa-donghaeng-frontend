@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -11,9 +12,14 @@ class Settings(BaseSettings):
     # 백엔드의 PROVIDER_MODE와는 별개 값이다 — 이쪽은 이 서비스 내부의 외부 호출 여부.
     provider_mode: str = "mock"
 
+    llm_provider: Literal["anthropic", "gemini"] = "anthropic"
     anthropic_api_key: str | None = None
     ocr_model: str = "claude-opus-5"
     chat_model: str = "claude-opus-5"
+    gemini_api_key: str | None = None
+    # Separate names prevent an existing OCR_MODEL=claude-... from reaching Gemini.
+    gemini_ocr_model: str = "gemini-3.8-flash"
+    gemini_chat_model: str = "gemini-3.8-flash"
 
     data_go_kr_service_key: str | None = None
     mfds_base_url: str = "https://apis.data.go.kr/1471000"

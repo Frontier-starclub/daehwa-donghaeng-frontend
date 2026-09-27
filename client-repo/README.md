@@ -8,7 +8,11 @@
 2026-09-17: 사용자 등록, 실제 Backend OCR/약 저장 호출, 복약 시간, DUR 결과, 음성/텍스트 대화를 구현했습니다.
 서버 없는 실행은 `cd app` 후 `flutter run -d chrome --dart-define=USE_MOCK=true`입니다.
 실제 서버 실행은 `app/scripts/run-backend.ps1`을 사용합니다. Backend 내부 AI mock과 HTTP 통합을 확인했습니다.
-실제 AI 구현과 Android 실기기 검증은 남아 있습니다. [앱 README](app/README.md), [프론트 인수인계](docs/contract/frontend-handoff.md)를 보세요.
+2026-09-22: 실제 AI, 대화 문맥, 알림, 동의·분석·보호자 화면을 연결했습니다. 키 없는 전체 경로 검증과 실제 키·실기기 검증은 구분합니다. [추가 기능·실행](docs/contract/complete-flows.md)을 참고하세요. [앱 README](app/README.md), [프론트 인수인계](docs/contract/frontend-handoff.md)를 보세요.
+
+`feature/gemini-integration`: `LLM_PROVIDER=gemini`로 OCR·대화·분석에 Gemini를 사용할 수 있습니다. [Gemini 설정과 검증](docs/contract/gemini.md)을 참고하세요.
+
+자신의 PC에서 Android 앱과 서버를 함께 실행하려면 Backend 저장소의 [로컬 Android 실행 안내](https://github.com/Frontier-starclub/daehwa-donghaeng/blob/feature/gemini-integration/docs/local-android.md)를 따르세요. 두 저장소 모두 같은 기능 브랜치를 받아야 합니다.
 
 ## 구조
 
@@ -23,7 +27,7 @@ docs/   계약·결정 기록
 ```
 [Flutter 앱] --REST/multipart--> [백엔드 :8090] --HTTP--> [AI 서비스 :8100]
                                        |                        |
-                                  PostgreSQL          Claude API / 식약처 공공 API
+                                  PostgreSQL          Gemini 또는 Claude / 식약처 공공 API
 ```
 
 저장소를 이렇게 나눈 이유는 [`docs/decisions/`](docs/decisions/)에 있습니다.
@@ -64,7 +68,7 @@ flutter run
 
 ```sh
 docker compose -f compose.integration.yaml up --build
-python ../daehwa-donghaeng/apps/backend/scripts/smoke_test.py
+python ../../daehwa-donghaeng/apps/backend/scripts/smoke_test.py --image /path/to/label.jpg
 ```
 
 ## 개발 원칙
@@ -85,5 +89,9 @@ python ../daehwa-donghaeng/apps/backend/scripts/smoke_test.py
 | 이름 | 용도 |
 | --- | --- |
 | `AI_PROVIDER_MODE` | `mock` \| `remote`. 기본 `mock` |
-| `ANTHROPIC_API_KEY` | OCR·대화 응답 |
+| `LLM_PROVIDER` | `gemini` \| `anthropic`. 생략 시 `anthropic` |
+| `GEMINI_API_KEY` | Gemini OCR·대화·분석 |
+| `GEMINI_OCR_MODEL`, `GEMINI_CHAT_MODEL` | Gemini 모델. 기본 `gemini-3.8-flash` |
+| `ANTHROPIC_API_KEY` | Claude OCR·대화·분석 |
+| `OCR_MODEL`, `CHAT_MODEL` | Claude 모델 |
 | `DATA_GO_KR_SERVICE_KEY` | 식약처 공개 API |
