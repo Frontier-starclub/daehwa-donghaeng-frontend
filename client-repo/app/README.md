@@ -5,6 +5,12 @@
 [현재 구현 범위](../docs/contract/complete-flows.md), [Gemini 설정](../docs/contract/gemini.md),
 Backend 저장소의 [로컬 Android 실행 안내](https://github.com/Frontier-starclub/daehwa-donghaeng/blob/feature/gemini-integration/docs/local-android.md)를 참고하세요.
 
+팀원이 APK만 설치해 확인하는 방식은
+[공용 서버 + Android 앱 안내](https://github.com/Frontier-starclub/daehwa-donghaeng/blob/feature/gemini-integration/docs/shared-android.md)를 따릅니다.
+공용 빌드는 비공개 `--dart-define-from-file` 설정으로 `API_BASE_URL`과
+`TEST_ACCESS_TOKEN`을 전달합니다. Gemini·식약처 키는 앱에 포함하지 않습니다.
+기존 로컬 실행에서는 팀 접근 키 없이 동일하게 동작합니다.
+
 ## 서버 없이 화면 확인
 
 ```powershell

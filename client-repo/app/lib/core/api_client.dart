@@ -22,6 +22,7 @@ class ApiClient {
     required this.baseUrl,
     required DeviceIdStore deviceIdStore,
     http.Client? httpClient,
+    this.testAccessToken = '',
     this.timeout = const Duration(seconds: 60),
   })  : _deviceIdStore = deviceIdStore,
         _http = httpClient ?? http.Client();
@@ -31,6 +32,9 @@ class ApiClient {
   static const String emulatorBaseUrl = 'http://10.0.2.2:8090/api/v1';
 
   final String baseUrl;
+
+  /// Shared test server access only; never a Gemini or MFDS API key.
+  final String testAccessToken;
   final DeviceIdStore _deviceIdStore;
   final http.Client _http;
 
@@ -41,6 +45,8 @@ class ApiClient {
     final deviceId = await _deviceIdStore.readOrCreate();
     return {
       'X-Device-ID': deviceId,
+      if (testAccessToken.isNotEmpty)
+        'Authorization': 'Bearer $testAccessToken',
       if (json) 'Content-Type': 'application/json; charset=utf-8',
     };
   }

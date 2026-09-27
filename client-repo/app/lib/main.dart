@@ -40,6 +40,7 @@ void main() {
           kIsWeb ? 'http://localhost:8090/api/v1' : ApiClient.emulatorBaseUrl,
     ),
     deviceIdStore: deviceIdStore,
+    testAccessToken: const String.fromEnvironment('TEST_ACCESS_TOKEN'),
   );
 
   final reminders = ReminderService(apiClient);

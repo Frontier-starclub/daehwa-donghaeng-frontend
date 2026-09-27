@@ -39,9 +39,11 @@ void main() {
     final api = ApiClient(
       baseUrl: 'http://localhost',
       deviceIdStore: DeviceIdStore(),
+      testAccessToken: 'team-test-token',
       httpClient: MockClient((request) async {
         called = true;
         expect(request.headers['X-Device-ID'], 'test-device');
+        expect(request.headers['Authorization'], 'Bearer team-test-token');
         expect(
           request.headers['content-type'],
           contains('multipart/form-data'),
@@ -62,5 +64,41 @@ void main() {
       {'ok': true},
     );
     expect(called, isTrue);
+  });
+
+  test('shared access token accompanies JSON calls including bootstrap',
+      () async {
+    final methods = <String>[];
+    final api = ApiClient(
+      baseUrl: 'https://test.example/api/v1',
+      deviceIdStore: DeviceIdStore(),
+      testAccessToken: 'team-test-token',
+      httpClient: MockClient((request) async {
+        methods.add(request.method);
+        expect(request.headers['Authorization'], 'Bearer team-test-token');
+        expect(request.headers['X-Device-ID'], 'test-device');
+        return http.Response('{}', 200);
+      }),
+    );
+    addTearDown(api.close);
+    await api.post('/users/bootstrap', body: {'display_name': '테스트'});
+    await api.get('/users/me');
+    await api.put('/users/me', body: {});
+    await api.patch('/medications/id', body: {});
+    await api.delete('/caregivers/links/id');
+    expect(methods, ['POST', 'GET', 'PUT', 'PATCH', 'DELETE']);
+  });
+
+  test('local development sends no shared access token by default', () async {
+    final api = ApiClient(
+      baseUrl: 'http://localhost',
+      deviceIdStore: DeviceIdStore(),
+      httpClient: MockClient((request) async {
+        expect(request.headers.containsKey('Authorization'), isFalse);
+        return http.Response('{}', 200);
+      }),
+    );
+    addTearDown(api.close);
+    await api.get('/users/me');
   });
 }
