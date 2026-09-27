@@ -399,6 +399,7 @@ def test_safe_plain_honorific_reply_passes_validation(content: str) -> None:
 
 def test_anthropic_exception_maps_to_generic_502_without_leaking_details(
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     monkeypatch.setattr(chat, "get_settings", lambda: _remote_settings())
 
@@ -426,6 +427,10 @@ def test_anthropic_exception_maps_to_generic_502_without_leaking_details(
     assert error.value.message == "대화 응답을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요."
     assert "secret upstream detail" not in error.value.message
     assert "test-anthropic-key" not in error.value.message
+    assert "stage=provider_request error_type=RuntimeError" in caplog.text
+    assert "secret upstream detail" not in caplog.text
+    assert "test-anthropic-key" not in caplog.text
+    assert "오늘 산책했어요." not in caplog.text
 
 
 def test_missing_anthropic_key_maps_to_generic_502(

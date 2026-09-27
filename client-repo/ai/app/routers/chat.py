@@ -8,6 +8,7 @@ Flowchart FC-04에 대응한다. 음성은 앱에서 STT/TTS로 처리하므로 
 담당: 정진수 / Phase2-B (9/13~9/16)
 """
 
+import logging
 import re
 import unicodedata
 
@@ -19,6 +20,7 @@ from app.errors import UpstreamError
 from app.schemas import ChatReplyIn, ChatReplyOut
 
 router = APIRouter(prefix="/v1/chat", tags=["chat"])
+logger = logging.getLogger(__name__)
 
 _MOCK_OPENING = "오늘 하루 어떻게 보내셨어요?"
 _MOCK_REPLIES = (
@@ -244,6 +246,7 @@ def generate_reply(payload: ChatReplyIn) -> ChatReplyOut:
     if safe_reply is not None:
         return ChatReplyOut(content=safe_reply)
 
+    stage = "provider_request"
     try:
         if settings.llm_provider == "gemini":
             text = gemini.GeminiClient(settings.gemini_api_key).generate(
@@ -259,6 +262,7 @@ def generate_reply(payload: ChatReplyIn) -> ChatReplyOut:
                     ],
                 )
             )
+            stage = "reply_validation"
             return ChatReplyOut(content=_validate_generated_reply(text))
         # mock 모드와 첫 인사는 SDK 설치·키 상태와 무관하게 동작해야 하므로 지연 import한다.
         from anthropic import Anthropic
@@ -280,7 +284,15 @@ def generate_reply(payload: ChatReplyIn) -> ChatReplyOut:
                     {"role": "user", "content": payload.content},
                 ],
             )
+        stage = "reply_validation"
         return ChatReplyOut(content=_extract_text(response))
-    except Exception:
+    except Exception as error:
         # 외부 오류의 원문에는 키·요청 정보가 포함될 수 있으므로 노출하거나 기록하지 않는다.
+        # Record only the failure stage and exception class, never text or traceback.
+        logger.warning(
+            "chat_reply_failed provider=%s stage=%s error_type=%s",
+            settings.llm_provider,
+            stage,
+            type(error).__name__,
+        )
         raise UpstreamError(_CHAT_ERROR_CODE, _CHAT_ERROR_MESSAGE) from None
